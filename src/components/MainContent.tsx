@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import PostDetailModal from "./PostDetailModal";
 import FilterButtons from "./FilterButtons";
@@ -29,6 +30,7 @@ export default function MainContent({
   sidebarOpen,
   onToggleSidebar,
 }: MainContentProps) {
+  const router = useRouter();
   const [filter, setFilter] = useState<"ALL" | "FOUND" | "LOST">("ALL");
   const [aiOnly, setAiOnly] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -36,6 +38,40 @@ export default function MainContent({
   const [error, setError] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  // 로그인 상태 확인
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    const userData = localStorage.getItem("user");
+
+    console.log("🔐 로그인 상태 확인:", { token: !!token, user: !!userData });
+
+    if (!token || !userData) {
+      console.log("❌ 로그인되지 않음, 로그인 페이지로 리다이렉트");
+      router.push("/login");
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      console.log("✅ 로그인된 사용자:", parsedUser);
+    } catch (error) {
+      console.error("사용자 데이터 파싱 오류:", error);
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      router.push("/login");
+    }
+  }, [router]);
+
+  const handleLogout = () => {
+    console.log("🚪 로그아웃");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    setUser(null);
+    router.push("/login");
+  };
 
   const handleDetailClick = (postId: number) => {
     setSelectedPostId(postId);
@@ -53,7 +89,7 @@ export default function MainContent({
     }
 
     try {
-      const accessToken = localStorage.getItem("accessToken") || "mock-token";
+      const accessToken = localStorage.getItem("accessToken");
 
       const response = await axios.patch(
         `/api/admin/posts/${postId}/delete`,
@@ -94,8 +130,19 @@ export default function MainContent({
     setError(null);
 
     try {
-      // 실제 환경에서는 localStorage나 쿠키에서 토큰을 가져와야 합니다
-      const accessToken = localStorage.getItem("accessToken") || "mock-token";
+      const accessToken = localStorage.getItem("accessToken");
+
+      if (!accessToken) {
+        console.log("❌ 토큰이 없음, 로그인 페이지로 리다이렉트");
+        router.push("/login");
+        return;
+      }
+
+      console.log(
+        "🔑 토큰으로 API 호출:",
+        accessToken.substring(0, 20) + "..."
+      );
+      console.log(`📊 필터: ${filter}, AI만: ${aiOnly}`);
 
       const response = await axios.get("/api/admin/posts", {
         params: {
@@ -109,11 +156,18 @@ export default function MainContent({
         },
       });
 
-      if (response.data.success) {
+      if (response.data.isSuccess) {
         const data = response.data.result.content;
-        setPosts(data);
+        // 중복된 postId 제거 (같은 postId가 있으면 첫 번째 것만 유지)
+        const uniquePosts = data.filter(
+          (post: any, index: number, self: any[]) =>
+            index === self.findIndex((p: any) => p.postId === post.postId)
+        );
+        setPosts(uniquePosts);
       } else {
-        throw new Error(response.data.error || "API 응답 오류");
+        throw new Error(
+          response.data.message || response.data.error || "API 응답 오류"
+        );
       }
     } catch (err: any) {
       console.error("API 호출 오류:", err);
@@ -153,22 +207,40 @@ export default function MainContent({
     <main className="flex-1 flex flex-col bg-gray-100 transition-all duration-300 min-w-0">
       {/* Header */}
       <header className="bg-white/60 border-b border-black/10 px-6 py-4 h-16">
-        <div className="flex items-center gap-3">
-          <button
-            className="w-7 h-7 border-none bg-none cursor-pointer rounded-lg flex items-center justify-center"
-            onClick={onToggleSidebar}
-          >
-            <div className="w-4 h-4 bg-gray-600 relative transition-all duration-200">
-              <div className="absolute top-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
-              <div className="absolute bottom-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
-            </div>
-          </button>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-sky-300 rounded-lg"></div>
-            <h2 className="text-lg font-semibold text-gray-900 tracking-tight leading-7">
-              강아지킴이 관리자
-            </h2>
+            <button
+              className="w-7 h-7 border-none bg-none cursor-pointer rounded-lg flex items-center justify-center"
+              onClick={onToggleSidebar}
+            >
+              <div className="w-4 h-4 bg-gray-600 relative transition-all duration-200">
+                <div className="absolute top-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
+                <div className="absolute bottom-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
+              </div>
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 bg-sky-300 rounded-lg"></div>
+              <h2 className="text-lg font-semibold text-gray-900 tracking-tight leading-7">
+                강아지킴이 관리자
+              </h2>
+            </div>
           </div>
+
+          {/* 사용자 정보 및 로그아웃 */}
+          {user && (
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">{user.name}</span>
+                <span className="text-gray-400 ml-2">({user.email})</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+              >
+                로그아웃
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

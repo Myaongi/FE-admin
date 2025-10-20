@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getApiClient } from "@/lib/api-client";
 
-// 목업 데이터
+// 목업 데이터 (개발 환경에서 사용)
 const mockPosts = [
   {
     postId: 1,
@@ -114,6 +115,9 @@ const mockPosts = [
 ];
 
 export async function GET(request: NextRequest) {
+  console.log("🔥 Posts API 호출됨!");
+  console.log("📍 요청 URL:", request.url);
+
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "ALL";
@@ -121,8 +125,14 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "0");
     const size = parseInt(searchParams.get("size") || "20");
 
+    console.log(
+      `📊 파라미터 - type: ${type}, aiOnly: ${aiOnly}, page: ${page}, size: ${size}`
+    );
+
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");
+    console.log("🔐 인증 헤더:", authHeader ? "있음" : "없음");
+
     if (!authHeader && process.env.NODE_ENV === "production") {
       return NextResponse.json(
         { error: "인증이 필요합니다." },
@@ -130,53 +140,127 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 타입별 필터링
-    let filteredPosts = mockPosts;
-    if (type === "FOUND") {
-      filteredPosts = mockPosts.filter((post) => post.type === "FOUND");
-    } else if (type === "LOST") {
-      filteredPosts = mockPosts.filter((post) => post.type === "LOST");
-    }
+    // 환경 변수로 목업 데이터 사용 여부 결정
+    const useMockData = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+    console.log("🎭 목업 데이터 사용 여부:", useMockData);
 
-    // AI 이미지 필터링
-    if (aiOnly) {
-      filteredPosts = filteredPosts.filter(
-        (post) => post.isAiGenerated === true
+    if (useMockData) {
+      // 목업 데이터 사용
+      let filteredPosts = mockPosts;
+      if (type === "FOUND") {
+        filteredPosts = mockPosts.filter((post) => post.type === "FOUND");
+      } else if (type === "LOST") {
+        filteredPosts = mockPosts.filter((post) => post.type === "LOST");
+      }
+
+      // AI 이미지 필터링
+      if (aiOnly) {
+        filteredPosts = filteredPosts.filter(
+          (post) => post.isAiGenerated === true
+        );
+      }
+
+      // 페이지네이션 적용
+      const startIndex = page * size;
+      const endIndex = startIndex + size;
+      const paginatedPosts = filteredPosts.slice(startIndex, endIndex);
+
+      // API 응답 구조
+      const response = {
+        success: true,
+        result: {
+          content: paginatedPosts,
+          pageable: {
+            pageNumber: page,
+            pageSize: size,
+            sort: {
+              sorted: false,
+              unsorted: true,
+            },
+          },
+          totalElements: filteredPosts.length,
+          totalPages: Math.ceil(filteredPosts.length / size),
+          first: page === 0,
+          last: endIndex >= filteredPosts.length,
+          numberOfElements: paginatedPosts.length,
+          size: size,
+          number: page,
+          empty: paginatedPosts.length === 0,
+        },
+      };
+
+      return NextResponse.json(response);
+    } else {
+      // 실제 서버 API 호출
+      console.log("🌐 실제 서버 API 호출 시작");
+      const apiClient = getApiClient();
+
+      // Authorization 헤더에서 토큰 추출
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader?.replace("Bearer ", "") || "";
+
+      const response = await apiClient.getPosts(
+        {
+          type,
+          aiOnly,
+          page,
+          size,
+        },
+        token
+      );
+
+      console.log("📦 서버 응답:", response);
+
+      if (response.success || response.isSuccess) {
+        console.log("✅ 서버 응답 성공");
+        return NextResponse.json(response);
+      } else {
+        console.log("❌ 서버 응답 실패:", response.error);
+        return NextResponse.json(
+          {
+            error:
+              response.error || "서버에서 데이터를 가져오는데 실패했습니다.",
+          },
+          { status: 500 }
+        );
+      }
+    }
+  } catch (error) {
+    console.error("API Error:", error);
+
+    // 서버에서 온 상태 코드가 있으면 그대로 사용
+    if (error && typeof error === "object" && "status" in error) {
+      const status = (error as any).status;
+      const statusText = (error as any).statusText || "Server Error";
+
+      console.log(`🔍 서버 상태 코드 전달: ${status} ${statusText}`);
+
+      return NextResponse.json(
+        { error: (error as any).message || "서버 오류가 발생했습니다." },
+        { status: status }
       );
     }
 
-    // 페이지네이션 적용
-    const startIndex = page * size;
-    const endIndex = startIndex + size;
-    const paginatedPosts = filteredPosts.slice(startIndex, endIndex);
+    // 에러 타입에 따른 적절한 응답
+    if (error instanceof Error) {
+      if (error.message.includes("401")) {
+        return NextResponse.json(
+          { error: "인증이 필요합니다." },
+          { status: 401 }
+        );
+      } else if (error.message.includes("404")) {
+        return NextResponse.json(
+          { error: "API 엔드포인트를 찾을 수 없습니다." },
+          { status: 404 }
+        );
+      } else if (error.message.includes("네트워크")) {
+        return NextResponse.json(
+          { error: "서버에 연결할 수 없습니다. 네트워크를 확인해주세요." },
+          { status: 503 }
+        );
+      }
+    }
 
-    // API 응답 구조
-    const response = {
-      success: true,
-      result: {
-        content: paginatedPosts,
-        pageable: {
-          pageNumber: page,
-          pageSize: size,
-          sort: {
-            sorted: false,
-            unsorted: true,
-          },
-        },
-        totalElements: filteredPosts.length,
-        totalPages: Math.ceil(filteredPosts.length / size),
-        first: page === 0,
-        last: endIndex >= filteredPosts.length,
-        numberOfElements: paginatedPosts.length,
-        size: size,
-        number: page,
-        empty: paginatedPosts.length === 0,
-      },
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error("API Error:", error);
     return NextResponse.json(
       { error: "서버 오류가 발생했습니다." },
       { status: 500 }

@@ -51,7 +51,7 @@ export default function PostDetailModal({
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem("accessToken") || "mock-token";
+      const accessToken = localStorage.getItem("accessToken");
 
       console.log("API 호출 시작:", `/api/admin/posts/${id}`);
 
@@ -66,6 +66,14 @@ export default function PostDetailModal({
       if (response.data.isSuccess) {
         console.log("게시글 상세 데이터:", response.data.result);
         const data = response.data.result;
+
+        // 서버에서 받은 데이터가 예상 형식과 다를 수 있으므로 로그 출력
+        console.log("📋 서버 응답 구조:", {
+          isSuccess: response.data.isSuccess,
+          result: response.data.result,
+          message: response.data.message,
+          code: response.data.code,
+        });
 
         // 타입 검증
         if (!data.type || (data.type !== "LOST" && data.type !== "FOUND")) {
