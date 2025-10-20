@@ -34,11 +34,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div
-      className={`flex min-h-screen transition-all duration-300 ${
-        sidebarOpen ? "lg:ml-0" : "lg:ml-0"
-      }`}
-    >
+    <div className="flex min-h-screen transition-all duration-300">
       <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
       <MainContent sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
     </div>

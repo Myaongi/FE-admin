@@ -14,6 +14,10 @@ interface Post {
   authorName: string;
   createdAt: number[];
   region: string;
+  aiImage?: string | null;
+  realImages?: string[];
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 interface MainContentProps {
@@ -41,6 +45,47 @@ export default function MainContent({
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedPostId(null);
+  };
+
+  const handleDeleteClick = async (postId: number) => {
+    if (!confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+      return;
+    }
+
+    try {
+      const accessToken = localStorage.getItem("accessToken") || "mock-token";
+
+      const response = await axios.patch(
+        `/api/admin/posts/${postId}/delete`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.data.isSuccess) {
+        // 프론트엔드 상태 즉시 업데이트
+        setPosts((prevPosts) =>
+          prevPosts.map((post) =>
+            post.postId === postId
+              ? {
+                  ...post,
+                  isDeleted: true,
+                  deletedAt: response.data.result.deletedAt,
+                }
+              : post
+          )
+        );
+        alert("게시글이 삭제되었습니다.");
+      } else {
+        throw new Error(response.data.error || "삭제에 실패했습니다.");
+      }
+    } catch (error: any) {
+      console.error("게시글 삭제 오류:", error);
+      alert(error.message || "게시글 삭제에 실패했습니다.");
+    }
   };
 
   // API 호출 함수
@@ -110,7 +155,7 @@ export default function MainContent({
       <header className="bg-white/60 border-b border-black/10 px-6 py-4 h-16">
         <div className="flex items-center gap-3">
           <button
-            className="w-7 h-7 border-none bg-none cursor-pointer rounded-lg flex items-center justify-center lg:hidden"
+            className="w-7 h-7 border-none bg-none cursor-pointer rounded-lg flex items-center justify-center"
             onClick={onToggleSidebar}
           >
             <div className="w-4 h-4 bg-gray-600 relative transition-all duration-200">
@@ -152,6 +197,7 @@ export default function MainContent({
             loading={loading}
             error={error}
             onDetailClick={handleDetailClick}
+            onDeleteClick={handleDeleteClick}
           />
         </div>
       </div>

@@ -5,11 +5,11 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
 import PostTab from "./PostDetailModalTab/PostTab";
 import DogTab from "./PostDetailModalTab/DogTab";
-import FoundTab from "./PostDetailModalTab/FoundTab";
+import LocationInfoTab from "./PostDetailModalTab/LocationInfoTab";
 
 interface PostDetail {
   postId: number;
-  type: "LOST";
+  type: "LOST" | "FOUND";
   status: string;
   title: string;
   authorName: string;
@@ -17,7 +17,7 @@ interface PostDetail {
   region: string;
   aiImage: string | null;
   realImages: string[];
-  dogName: string;
+  dogName?: string | null; // LOST만 값 존재
   breed: string;
   color: string;
   gender: "MALE" | "FEMALE";
@@ -41,7 +41,9 @@ export default function PostDetailModal({
   const [postDetail, setPostDetail] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"post" | "dog" | "found">("post");
+  const [activeTab, setActiveTab] = useState<"post" | "dog" | "location">(
+    "post"
+  );
 
   // 게시글 상세 정보 가져오기
   const fetchPostDetail = async (id: number) => {
@@ -63,13 +65,22 @@ export default function PostDetailModal({
 
       if (response.data.isSuccess) {
         console.log("게시글 상세 데이터:", response.data.result);
-        setPostDetail(response.data.result);
+        const data = response.data.result;
+
+        // 타입 검증
+        if (!data.type || (data.type !== "LOST" && data.type !== "FOUND")) {
+          throw new Error(
+            "잘못된 게시물 타입입니다. LOST 또는 FOUND 타입이어야 합니다."
+          );
+        }
+
+        setPostDetail(data);
       } else {
         throw new Error(response.data.error || "API 응답 오류");
       }
     } catch (err: any) {
       console.error("게시글 상세 정보 조회 오류:", err);
-      setError("게시글 정보를 불러오는데 실패했습니다.");
+      setError(err.message || "게시글 상세 정보를 불러오는데 실패했습니다.");
       setPostDetail(null);
     } finally {
       setLoading(false);
@@ -163,7 +174,7 @@ export default function PostDetailModal({
 
       {/* 모달 컨테이너 - 중앙 정렬 */}
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white shadow-xl md:max-w-2xl sm:max-w-full sm:mx-0 sm:my-0 sm:h-full sm:rounded-none">
+        <div className="relative w-full max-w-2xl transform overflow-hidden rounded-3xl bg-white shadow-xl md:max-w-2xl sm:max-w-full sm:mx-0 sm:my-0 sm:h-full sm:rounded-2xl">
           {/* 모달 헤더 */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h3 className="text-xl font-bold text-gray-900">
@@ -194,14 +205,20 @@ export default function PostDetailModal({
                 {/* 탭 버튼 */}
                 <div className="flex border-b border-gray-200 mb-6">
                   {[
-                    { id: "post", label: "게시물 기본 정보" },
-                    { id: "dog", label: "강아지 기본 정보" },
-                    { id: "found", label: "발견 정보" },
+                    { id: "post", label: "📝 게시물 기본 정보" },
+                    { id: "dog", label: "🐶 강아지 기본 정보" },
+                    {
+                      id: "location",
+                      label:
+                        postDetail.type === "LOST"
+                          ? "🐾 실종 정보"
+                          : "🐾 발견 정보",
+                    },
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() =>
-                        setActiveTab(tab.id as "post" | "dog" | "found")
+                        setActiveTab(tab.id as "post" | "dog" | "location")
                       }
                       className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
                         activeTab === tab.id
@@ -220,7 +237,6 @@ export default function PostDetailModal({
                     postDetail={postDetail}
                     formatDate={formatDate}
                     formatTime={formatTime}
-                    renderStatusBadge={renderStatusBadge}
                   />
                 )}
 
@@ -231,8 +247,8 @@ export default function PostDetailModal({
                   />
                 )}
 
-                {activeTab === "found" && (
-                  <FoundTab
+                {activeTab === "location" && (
+                  <LocationInfoTab
                     postDetail={postDetail}
                     formatDate={formatDate}
                     formatTime={formatTime}
@@ -244,13 +260,6 @@ export default function PostDetailModal({
 
           {/* 모달 푸터 */}
           <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 sm:flex-col sm:gap-2 sm:px-4">
-            <button
-              type="button"
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-full"
-              onClick={onClose}
-            >
-              닫기
-            </button>
             <button
               type="button"
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 sm:w-full"
