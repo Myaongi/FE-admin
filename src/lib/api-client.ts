@@ -1,11 +1,20 @@
 // API 클라이언트 설정
-const API_BASE_URL = "http://54.180.54.51:8080";
+const API_BASE_URL = "http://54.180.54.51:8080"; // 실서버 (게시물 관리용)
+const MOCK_API_BASE_URL = "/api"; // 목업 데이터 (사용자 관리용)
+
+// 공통 설정
+const authHeaders = (token: string) => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${token}`,
+});
 
 export interface ApiResponse<T> {
   success?: boolean;
   isSuccess?: boolean;
   result?: T;
   error?: string;
+  message?: string;
+  code?: string;
 }
 
 export interface Post {
@@ -17,9 +26,9 @@ export interface Post {
   createdAt: number[];
   region: string;
   isAiGenerated: boolean;
-  aiImage?: string | null;
-  realImages?: string[];
-  dogName?: string;
+  aiImage: string | null;
+  realImages: string[];
+  dogName?: string | null;
   breed?: string;
   color?: string;
   gender?: string;
@@ -30,7 +39,14 @@ export interface Post {
 }
 
 export interface PostDetail extends Post {
-  // 상세 정보에만 있는 추가 필드들
+  dogName?: string | null; // LOST만 값 존재
+  breed: string;
+  color: string;
+  gender: "MALE" | "FEMALE";
+  description: string;
+  eventDateTime: number[];
+  latitude: number;
+  longitude: number;
 }
 
 export interface PostsResponse {
@@ -95,16 +111,37 @@ class ApiClient {
         ...defaultHeaders,
         ...options.headers,
       },
+      // CORS 문제 해결을 위한 설정 추가
+      mode: "cors",
+      credentials: "omit",
     };
 
     console.log(`📋 요청 옵션:`, {
       method: config.method || "GET",
       headers: config.headers,
       body: config.body ? "있음" : "없음",
+      mode: config.mode,
+      credentials: config.credentials,
     });
 
     try {
-      const response = await fetch(url, config);
+      // 네트워크 연결 확인 (클라이언트에서만)
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        throw new Error(
+          "네트워크 연결이 없습니다. 인터넷 연결을 확인해주세요."
+        );
+      }
+
+      // 타임아웃 설정 (30초)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch(url, {
+        ...config,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
 
       console.log(`📡 응답 상태: ${response.status} ${response.statusText}`);
 
@@ -138,10 +175,16 @@ class ApiClient {
 
       // 서버 응답 형식에 맞게 변환
       if (data.isSuccess) {
+        // 서버에서 result 안에 실제 데이터(content, totalElements 등)가 들어 있으므로
+        const resultData = data.result?.content
+          ? data.result
+          : { content: data.result };
+
         return {
+          success: true,
           isSuccess: true,
-          result: data.result,
-          message: data.message,
+          result: resultData,
+          message: "OK", // ✅ 항상 OK로 통일 (SUCCESS! 때문에 throw 방지)
           code: data.code,
         };
       } else {
@@ -159,9 +202,28 @@ class ApiClient {
         method: config.method || "GET",
         headers: config.headers,
         body: config.body ? "있음" : "없음",
+        mode: config.mode,
+        credentials: config.credentials,
       });
 
+      // 더 구체적인 에러 메시지 제공
+      if (
+        error instanceof TypeError &&
+        error.message.includes("Failed to fetch")
+      ) {
+        console.error("❌ 네트워크 오류 또는 CORS 문제 발생");
+        throw new Error(
+          "서버에 연결할 수 없습니다. 네트워크 연결을 확인하거나 서버 상태를 확인해주세요."
+        );
+      }
+
       if (error instanceof Error) {
+        // AbortError는 타임아웃을 의미
+        if (error.name === "AbortError") {
+          throw new Error(
+            "요청 시간이 초과되었습니다. 서버가 응답하지 않습니다."
+          );
+        }
         throw error;
       }
 
@@ -191,8 +253,9 @@ class ApiClient {
 
     const queryString = searchParams.toString();
 
-    // 가능한 엔드포인트들을 시도
+    // 프록시 엔드포인트 사용
     const possibleEndpoints = [
+      `/api/proxy/posts${queryString ? `?${queryString}` : ""}`,
       `/api/admin/posts${queryString ? `?${queryString}` : ""}`,
       `/api/posts${queryString ? `?${queryString}` : ""}`,
       `/posts${queryString ? `?${queryString}` : ""}`,
@@ -237,112 +300,66 @@ class ApiClient {
     throw lastError || new Error("모든 엔드포인트 시도 실패");
   }
 
-  // 게시글 상세 조회
+  // 게시글 상세 조회 - GET /api/proxy/posts/{postId}?type={type}
   async getPostDetail(
     postId: number,
+    type: "LOST" | "FOUND",
     accessToken?: string
   ): Promise<ApiResponse<PostDetail>> {
-    const possibleEndpoints = [
-      `/api/admin/posts/${postId}`,
-      `/api/posts/${postId}`,
-      `/posts/${postId}`,
-      `/admin/posts/${postId}`,
-      `/api/admin/post/${postId}`,
-      `/api/post/${postId}`,
-      `/post/${postId}`,
-    ];
+    const endpoint = `/api/proxy/posts/${postId}?type=${type}`;
 
-    let lastError;
+    try {
+      console.log(`🔍 상세 조회 엔드포인트: ${endpoint}`);
 
-    for (const endpoint of possibleEndpoints) {
-      try {
-        console.log(`🔍 상세 조회 엔드포인트 시도: ${endpoint}`);
-
-        const response = await this.request<PostDetail>(
-          endpoint,
-          {
-            method: "GET",
-          },
-          accessToken
-        );
-
-        console.log(`✅ 성공한 상세 조회 엔드포인트: ${endpoint}`);
-        return response;
-      } catch (error) {
-        console.log(`❌ 상세 조회 엔드포인트 실패: ${endpoint}`);
-
-        console.log(`📋 실패한 요청 헤더:`, {
-          url: `${this.baseURL}${endpoint}`,
+      const response = await this.request<PostDetail>(
+        endpoint,
+        {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken && {
-              Authorization: `Bearer ${accessToken.substring(0, 20)}...`,
-            }),
-          },
-        });
-        console.log(`🔍 에러 상세:`, error);
-        lastError = error;
-        continue;
-      }
-    }
+        },
+        accessToken
+      );
 
-    throw lastError || new Error("모든 상세 조회 엔드포인트 시도 실패");
+      console.log(`✅ 상세 조회 성공: ${endpoint}`);
+      return response;
+    } catch (error) {
+      console.log(`❌ 상세 조회 실패: ${endpoint}`);
+      console.log(`🔍 에러 상세:`, error);
+      throw error;
+    }
   }
 
-  // 게시글 삭제
+  // 게시글 삭제 - DELETE /api/proxy/posts/{postId}/delete?type={type}
   async deletePost(
     postId: number,
+    type: "LOST" | "FOUND",
     accessToken?: string
   ): Promise<ApiResponse<DeleteResponse>> {
-    const possibleEndpoints = [
-      `/api/admin/posts/${postId}/delete`,
-      `/api/posts/${postId}/delete`,
-      `/posts/${postId}/delete`,
-      `/admin/posts/${postId}/delete`,
-    ];
+    const endpoint = `/api/proxy/posts/${postId}/delete?type=${type}`;
 
-    let lastError;
+    try {
+      console.log(`🔍 삭제 엔드포인트: ${endpoint}`);
 
-    for (const endpoint of possibleEndpoints) {
-      try {
-        console.log(`🔍 삭제 엔드포인트 시도: ${endpoint}`);
+      const response = await this.request<DeleteResponse>(
+        endpoint,
+        {
+          method: "DELETE",
+        },
+        accessToken
+      );
 
-        const response = await this.request<DeleteResponse>(
-          endpoint,
-          {
-            method: "PATCH",
-          },
-          accessToken
-        );
-
-        console.log(`✅ 성공한 삭제 엔드포인트: ${endpoint}`);
-        return response;
-      } catch (error) {
-        console.log(`❌ 삭제 엔드포인트 실패: ${endpoint}`);
-
-        console.log(`📋 실패한 요청 헤더:`, {
-          url: `${this.baseURL}${endpoint}`,
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken && {
-              Authorization: `Bearer ${accessToken.substring(0, 20)}...`,
-            }),
-          },
-        });
-        console.log(`🔍 에러 상세:`, error);
-        lastError = error;
-        continue;
-      }
+      console.log(`✅ 삭제 성공: ${endpoint}`);
+      return response;
+    } catch (error) {
+      console.log(`❌ 삭제 실패: ${endpoint}`);
+      console.log(`🔍 에러 상세:`, error);
+      throw error;
     }
-
-    throw lastError || new Error("모든 삭제 엔드포인트 시도 실패");
   }
 }
 
 // 싱글톤 인스턴스 생성
-export const apiClient = new ApiClient(API_BASE_URL);
+export const apiClient = new ApiClient(API_BASE_URL); // 게시물 관리용 (실서버)
+export const mockApiClient = new ApiClient(MOCK_API_BASE_URL); // 사용자 관리용 (목업)
 
 // 개발 환경에서 목업 데이터를 사용할지 실제 서버를 사용할지 결정하는 함수
 export const isUsingMockData = (): boolean => {
@@ -359,4 +376,9 @@ export const getApiClient = () => {
     return new ApiClient("");
   }
   return apiClient;
+};
+
+// 사용자 관리용 API 클라이언트 (항상 목업 데이터 사용)
+export const getMembersApiClient = () => {
+  return mockApiClient;
 };

@@ -3,13 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { apiClient } from "@/lib/api-client";
 import PostDetailModal from "./PostDetailModal";
 import FilterButtons from "./FilterButtons";
 import AiToggle from "./AiToggle";
 import PostsTable from "./PostsTable";
+import UsersManagement from "./UsersManagement";
 
 interface Post {
   postId: number;
+  type: "LOST" | "FOUND";
   status: string;
   title: string;
   authorName: string;
@@ -24,11 +27,13 @@ interface Post {
 interface MainContentProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  selectedMenu: string;
 }
 
 export default function MainContent({
   sidebarOpen,
   onToggleSidebar,
+  selectedMenu,
 }: MainContentProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<"ALL" | "FOUND" | "LOST">("ALL");
@@ -37,6 +42,9 @@ export default function MainContent({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [selectedPostType, setSelectedPostType] = useState<
+    "LOST" | "FOUND" | null
+  >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
@@ -74,13 +82,33 @@ export default function MainContent({
   };
 
   const handleDetailClick = (postId: number) => {
-    setSelectedPostId(postId);
-    setIsModalOpen(true);
+    const post = posts.find((p) => p.postId === postId);
+    if (post) {
+      setSelectedPostId(postId);
+      setSelectedPostType(post.type);
+      setIsModalOpen(true);
+    }
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedPostId(null);
+    setSelectedPostType(null);
+  };
+
+  const handleModalDelete = (postId: number, postType: "LOST" | "FOUND") => {
+    // 모달에서 삭제된 경우 테이블 상태 업데이트
+    setPosts((prevPosts) =>
+      prevPosts.map((p) =>
+        p.postId === postId
+          ? {
+              ...p,
+              isDeleted: true,
+              deletedAt: new Date().toISOString(),
+            }
+          : p
+      )
+    );
   };
 
   const handleDeleteClick = async (postId: number) => {
@@ -89,34 +117,41 @@ export default function MainContent({
     }
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
+      const post = posts.find((p) => p.postId === postId);
+      if (!post) {
+        alert("게시글을 찾을 수 없습니다.");
+        return;
+      }
 
-      const response = await axios.patch(
-        `/api/admin/posts/${postId}/delete`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        alert("인증 토큰이 없습니다.");
+        return;
+      }
+
+      const response = await apiClient.deletePost(
+        postId,
+        post.type,
+        accessToken
       );
 
-      if (response.data.isSuccess) {
+      if (response.isSuccess) {
         // 프론트엔드 상태 즉시 업데이트
         setPosts((prevPosts) =>
-          prevPosts.map((post) =>
-            post.postId === postId
+          prevPosts.map((p) =>
+            p.postId === postId
               ? {
-                  ...post,
+                  ...p,
                   isDeleted: true,
-                  deletedAt: response.data.result.deletedAt,
+                  deletedAt:
+                    response.result?.deletedAt || new Date().toISOString(),
                 }
-              : post
+              : p
           )
         );
         alert("게시글이 삭제되었습니다.");
       } else {
-        throw new Error(response.data.error || "삭제에 실패했습니다.");
+        throw new Error(response.error || "삭제에 실패했습니다.");
       }
     } catch (error: any) {
       console.error("게시글 삭제 오류:", error);
@@ -144,7 +179,7 @@ export default function MainContent({
       );
       console.log(`📊 필터: ${filter}, AI만: ${aiOnly}`);
 
-      const response = await axios.get("/api/admin/posts", {
+      const response = await axios.get("/api/proxy/posts", {
         params: {
           type: filter,
           aiOnly: aiOnly,
@@ -155,6 +190,8 @@ export default function MainContent({
           Authorization: `Bearer ${accessToken}`,
         },
       });
+
+      console.log("📦 API 응답:", response.data);
 
       if (response.data.isSuccess) {
         const data = response.data.result.content;
@@ -203,6 +240,91 @@ export default function MainContent({
     return "전체 게시물 목록";
   };
 
+  // 선택된 메뉴에 따라 다른 컴포넌트 렌더링
+  const renderContent = () => {
+    switch (selectedMenu) {
+      case "users":
+        return <UsersManagement />;
+      case "posts":
+        return (
+          <div className="p-6 flex-1">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
+                게시물 관리
+              </h1>
+            </div>
+
+            <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
+              <div className="mb-5">
+                <h3 className="text-base font-bold text-gray-900 tracking-tight leading-4">
+                  {getCardTitle()}
+                </h3>
+              </div>
+
+              <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
+                <FilterButtons filter={filter} onFilterChange={setFilter} />
+                <AiToggle aiOnly={aiOnly} onToggle={() => setAiOnly(!aiOnly)} />
+              </div>
+
+              <PostsTable
+                posts={posts}
+                loading={loading}
+                error={error}
+                onDetailClick={handleDetailClick}
+                onDeleteClick={handleDeleteClick}
+              />
+            </div>
+          </div>
+        );
+      case "reports":
+        return (
+          <div className="p-6 flex-1">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
+                신고 내역 관리
+              </h1>
+            </div>
+            <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
+              <div className="text-center py-12 text-gray-500">
+                신고 내역 관리 기능은 준비 중입니다.
+              </div>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="p-6 flex-1">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
+                게시물 관리
+              </h1>
+            </div>
+
+            <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
+              <div className="mb-5">
+                <h3 className="text-base font-bold text-gray-900 tracking-tight leading-4">
+                  {getCardTitle()}
+                </h3>
+              </div>
+
+              <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
+                <FilterButtons filter={filter} onFilterChange={setFilter} />
+                <AiToggle aiOnly={aiOnly} onToggle={() => setAiOnly(!aiOnly)} />
+              </div>
+
+              <PostsTable
+                posts={posts}
+                loading={loading}
+                error={error}
+                onDetailClick={handleDetailClick}
+                onDeleteClick={handleDeleteClick}
+              />
+            </div>
+          </div>
+        );
+    }
+  };
+
   return (
     <main className="flex-1 flex flex-col bg-gray-100 transition-all duration-300 min-w-0">
       {/* Header */}
@@ -245,40 +367,15 @@ export default function MainContent({
       </header>
 
       {/* Page Content */}
-      <div className="p-6 flex-1">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-wide leading-9">
-            게시물 관리
-          </h1>
-        </div>
-
-        <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
-          <div className="mb-5">
-            <h3 className="text-base font-bold text-gray-900 tracking-tight leading-4">
-              {getCardTitle()}
-            </h3>
-          </div>
-
-          <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
-            <FilterButtons filter={filter} onFilterChange={setFilter} />
-            <AiToggle aiOnly={aiOnly} onToggle={() => setAiOnly(!aiOnly)} />
-          </div>
-
-          <PostsTable
-            posts={posts}
-            loading={loading}
-            error={error}
-            onDetailClick={handleDetailClick}
-            onDeleteClick={handleDeleteClick}
-          />
-        </div>
-      </div>
+      {renderContent()}
 
       {/* 상세보기 모달 */}
       <PostDetailModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         postId={selectedPostId}
+        postType={selectedPostType}
+        onDelete={handleModalDelete}
       />
     </main>
   );

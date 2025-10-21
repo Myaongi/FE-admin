@@ -2,6 +2,7 @@
 
 interface Post {
   postId: number;
+  type: "LOST" | "FOUND";
   status: string;
   title: string;
   authorName: string;

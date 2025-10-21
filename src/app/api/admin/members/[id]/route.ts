@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getApiClient } from "@/lib/api-client";
-import { mockPostDetails } from "@/lib/mock/posts";
+import { mockMembers } from "@/lib/mock/members";
 
 // CORS preflight 요청 처리
 export async function OPTIONS() {
@@ -19,7 +18,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const postId = parseInt(params.id);
+    const memberId = parseInt(params.id);
 
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");
@@ -42,11 +41,13 @@ export async function GET(
 
     if (useMockData) {
       // 목업 데이터 사용
-      const postDetail = mockPostDetails[postId];
+      const memberDetail = mockMembers.find(
+        (member) => member.memberId === memberId
+      );
 
-      if (!postDetail) {
+      if (!memberDetail) {
         return NextResponse.json(
-          { error: "게시글을 찾을 수 없습니다." },
+          { error: "사용자를 찾을 수 없습니다." },
           {
             status: 404,
             headers: {
@@ -60,7 +61,7 @@ export async function GET(
 
       const response = {
         isSuccess: true,
-        result: postDetail,
+        result: memberDetail,
       };
 
       console.log("API 응답:", response);
@@ -72,111 +73,19 @@ export async function GET(
         },
       });
     } else {
-      // 실제 서버 API 호출 - 개별 조회가 안 되므로 전체 목록에서 찾기
-      const apiClient = getApiClient();
-
-      // Authorization 헤더에서 토큰 추출
-      const authHeader = request.headers.get("authorization");
-      const token = authHeader?.replace("Bearer ", "") || "";
-
-      console.log("🔍 전체 목록에서 포스트 찾기:", postId);
-      console.log(
-        "🔑 사용할 토큰:",
-        token ? token.substring(0, 20) + "..." : "없음"
-      );
-
-      try {
-        // 전체 목록 조회
-        const response = await apiClient.getPosts(
-          {
-            type: undefined,
-            aiOnly: undefined,
-            page: 1,
-            size: 1000, // 충분히 큰 수로 설정
+      // 실제 서버 API 호출 (향후 구현)
+      console.log("🌐 실제 서버 API 호출 (구현 예정)");
+      return NextResponse.json(
+        { error: "실제 서버 API는 아직 구현되지 않았습니다." },
+        {
+          status: 501,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
           },
-          token
-        );
-
-        console.log("📦 전체 목록 서버 응답:", response);
-
-        if (response.isSuccess && response.result) {
-          console.log("✅ 전체 목록 응답 성공");
-
-          // 해당 postId를 가진 포스트 찾기
-          const targetPost = response.result.content.find(
-            (post: any) => post.postId === postId
-          );
-
-          if (targetPost) {
-            console.log("✅ 포스트 찾음:", targetPost);
-            return NextResponse.json(
-              {
-                isSuccess: true,
-                result: targetPost,
-                message: "SUCCESS!",
-                code: "COMMON200",
-              },
-              {
-                headers: {
-                  "Access-Control-Allow-Origin": "*",
-                  "Access-Control-Allow-Methods":
-                    "GET, POST, PUT, DELETE, OPTIONS",
-                  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                },
-              }
-            );
-          } else {
-            console.log("❌ 포스트를 찾을 수 없음:", postId);
-            return NextResponse.json(
-              { error: "게시글을 찾을 수 없습니다." },
-              {
-                status: 404,
-                headers: {
-                  "Access-Control-Allow-Origin": "*",
-                  "Access-Control-Allow-Methods":
-                    "GET, POST, PUT, DELETE, OPTIONS",
-                  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                },
-              }
-            );
-          }
-        } else {
-          console.log(
-            "❌ 전체 목록 응답 실패:",
-            response.message || response.error
-          );
-          return NextResponse.json(
-            {
-              error:
-                response.message ||
-                response.error ||
-                "게시글 목록을 가져올 수 없습니다.",
-            },
-            {
-              status: 500,
-              headers: {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods":
-                  "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-              },
-            }
-          );
         }
-      } catch (error) {
-        console.error("전체 목록 조회 중 오류:", error);
-        return NextResponse.json(
-          { error: "서버 오류가 발생했습니다." },
-          {
-            status: 500,
-            headers: {
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            },
-          }
-        );
-      }
+      );
     }
   } catch (error) {
     console.error("API Error:", error);
@@ -217,7 +126,7 @@ export async function GET(
         );
       } else if (error.message.includes("404")) {
         return NextResponse.json(
-          { error: "게시글을 찾을 수 없습니다." },
+          { error: "사용자를 찾을 수 없습니다." },
           {
             status: 404,
             headers: {
@@ -241,6 +150,101 @@ export async function GET(
         );
       }
     }
+
+    return NextResponse.json(
+      { error: "서버 오류가 발생했습니다." },
+      {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const memberId = parseInt(params.id);
+
+    // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader && process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "인증이 필요합니다." },
+        {
+          status: 401,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          },
+        }
+      );
+    }
+
+    // 환경 변수로 목업 데이터 사용 여부 결정
+    const useMockData = process.env.NEXT_PUBLIC_USE_MOCK === "true" || true; // 항상 목업 사용
+
+    if (useMockData) {
+      // 목업 데이터에서 사용자 찾기
+      const member = mockMembers.find((member) => member.memberId === memberId);
+
+      if (!member) {
+        return NextResponse.json(
+          { error: "사용자를 찾을 수 없습니다." },
+          {
+            status: 404,
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
+          }
+        );
+      }
+
+      // 삭제 시뮬레이션 (실제로는 mockMembers 배열을 직접 수정할 수 없으므로)
+      const response = {
+        isSuccess: true,
+        result: {
+          memberId: memberId,
+          isDeleted: true,
+          deletedAt: new Date().toISOString(),
+        },
+        message: "사용자가 성공적으로 삭제되었습니다.",
+      };
+
+      console.log("사용자 삭제 API 응답:", response);
+      return NextResponse.json(response, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
+    } else {
+      // 실제 서버 API 호출 (향후 구현)
+      console.log("🌐 실제 서버 API 호출 (구현 예정)");
+      return NextResponse.json(
+        { error: "실제 서버 API는 아직 구현되지 않았습니다." },
+        {
+          status: 501,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          },
+        }
+      );
+    }
+  } catch (error) {
+    console.error("API Error:", error);
 
     return NextResponse.json(
       { error: "서버 오류가 발생했습니다." },

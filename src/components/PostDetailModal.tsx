@@ -2,41 +2,27 @@
 
 import { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import axios from "axios";
+import { apiClient } from "@/lib/api-client";
 import PostTab from "./PostDetailModalTab/PostTab";
 import DogTab from "./PostDetailModalTab/DogTab";
 import LocationInfoTab from "./PostDetailModalTab/LocationInfoTab";
 
-interface PostDetail {
-  postId: number;
-  type: "LOST" | "FOUND";
-  status: string;
-  title: string;
-  authorName: string;
-  createdAt: number[];
-  region: string;
-  aiImage: string | null;
-  realImages: string[];
-  dogName?: string | null; // LOST만 값 존재
-  breed: string;
-  color: string;
-  gender: "MALE" | "FEMALE";
-  description: string;
-  eventDateTime: number[];
-  latitude: number;
-  longitude: number;
-}
+import { PostDetail } from "@/lib/api-client";
 
 interface PostDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   postId: number | null;
+  postType: "LOST" | "FOUND" | null;
+  onDelete?: (postId: number, postType: "LOST" | "FOUND") => void;
 }
 
 export default function PostDetailModal({
   isOpen,
   onClose,
   postId,
+  postType,
+  onDelete,
 }: PostDetailModalProps) {
   const [postDetail, setPostDetail] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,33 +32,37 @@ export default function PostDetailModal({
   );
 
   // 게시글 상세 정보 가져오기
-  const fetchPostDetail = async (id: number) => {
+  const fetchPostDetail = async (id: number, type: "LOST" | "FOUND") => {
     setLoading(true);
     setError(null);
 
     try {
       const accessToken = localStorage.getItem("accessToken");
 
-      console.log("API 호출 시작:", `/api/admin/posts/${id}`);
+      if (!accessToken) {
+        throw new Error("인증 토큰이 없습니다. 다시 로그인해주세요.");
+      }
 
-      const response = await axios.get(`/api/admin/posts/${id}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      if (!type) {
+        throw new Error("게시글 타입이 필요합니다.");
+      }
 
-      console.log("API 응답 받음:", response.data);
+      console.log("API 호출 시작:", `/api/admin/posts/${type}/${id}`);
 
-      if (response.data.isSuccess) {
-        console.log("게시글 상세 데이터:", response.data.result);
-        const data = response.data.result;
+      const response = await apiClient.getPostDetail(id, type, accessToken);
+
+      console.log("API 응답 받음:", response);
+
+      if (response.isSuccess && response.result) {
+        console.log("게시글 상세 데이터:", response.result);
+        const data = response.result;
 
         // 서버에서 받은 데이터가 예상 형식과 다를 수 있으므로 로그 출력
         console.log("📋 서버 응답 구조:", {
-          isSuccess: response.data.isSuccess,
-          result: response.data.result,
-          message: response.data.message,
-          code: response.data.code,
+          isSuccess: response.isSuccess,
+          result: response.result,
+          message: response.message,
+          code: response.code,
         });
 
         // 타입 검증
@@ -84,11 +74,30 @@ export default function PostDetailModal({
 
         setPostDetail(data);
       } else {
-        throw new Error(response.data.error || "API 응답 오류");
+        throw new Error(response.error || "API 응답 오류");
       }
     } catch (err: any) {
       console.error("게시글 상세 정보 조회 오류:", err);
-      setError(err.message || "게시글 상세 정보를 불러오는데 실패했습니다.");
+
+      // 더 구체적인 에러 메시지 제공
+      let errorMessage = "게시글 상세 정보를 불러오는데 실패했습니다.";
+
+      if (err.message.includes("Failed to fetch")) {
+        errorMessage =
+          "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.";
+      } else if (err.message.includes("요청 시간이 초과")) {
+        errorMessage = "요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.";
+      } else if (err.message.includes("401")) {
+        errorMessage = "인증이 필요합니다. 다시 로그인해주세요.";
+      } else if (err.message.includes("404")) {
+        errorMessage = "해당 게시글을 찾을 수 없습니다.";
+      } else if (err.message.includes("500")) {
+        errorMessage = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
       setPostDetail(null);
     } finally {
       setLoading(false);
@@ -97,10 +106,50 @@ export default function PostDetailModal({
 
   // 모달이 열릴 때 게시글 상세 정보 가져오기
   useEffect(() => {
-    if (isOpen && postId) {
-      fetchPostDetail(postId);
+    if (isOpen && postId && postType) {
+      fetchPostDetail(postId, postType);
     }
-  }, [isOpen, postId]);
+  }, [isOpen, postId, postType]);
+
+  // 삭제 핸들러
+  const handleDelete = async () => {
+    if (!postId || !postType) {
+      alert("삭제할 게시글 정보가 없습니다.");
+      return;
+    }
+
+    if (!confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+      return;
+    }
+
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        alert("인증 토큰이 없습니다.");
+        return;
+      }
+
+      const response = await apiClient.deletePost(
+        postId,
+        postType,
+        accessToken
+      );
+
+      if (response.isSuccess) {
+        alert("게시글이 삭제되었습니다.");
+        onClose();
+        // 부모 컴포넌트에 삭제 완료 알림
+        if (onDelete) {
+          onDelete(postId, postType);
+        }
+      } else {
+        throw new Error(response.error || "삭제에 실패했습니다.");
+      }
+    } catch (error: any) {
+      console.error("게시글 삭제 오류:", error);
+      alert(error.message || "게시글 삭제에 실패했습니다.");
+    }
+  };
 
   // 상태 배지 렌더링
   const renderStatusBadge = (status: string) => {
@@ -205,8 +254,16 @@ export default function PostDetailModal({
                 <div className="text-gray-500">로딩 중...</div>
               </div>
             ) : error ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-red-500">{error}</div>
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="text-red-500 text-center">{error}</div>
+                <button
+                  onClick={() =>
+                    postId && postType && fetchPostDetail(postId, postType)
+                  }
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  다시 시도
+                </button>
               </div>
             ) : postDetail ? (
               <div>
@@ -271,6 +328,7 @@ export default function PostDetailModal({
             <button
               type="button"
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 sm:w-full"
+              onClick={handleDelete}
             >
               게시글 삭제
             </button>

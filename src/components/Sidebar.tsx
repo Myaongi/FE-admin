@@ -3,9 +3,16 @@
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+  selectedMenu: string;
+  onMenuSelect: (menu: string) => void;
 }
 
-export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
+export default function Sidebar({
+  isOpen,
+  onToggle,
+  selectedMenu,
+  onMenuSelect,
+}: SidebarProps) {
   return (
     <>
       {/* Mobile Overlay */}
@@ -27,7 +34,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-sky-300 rounded-lg flex items-center justify-center"></div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-7">
+                <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-7">
                   강아지킴이
                 </h1>
                 <p className="text-sm font-medium text-gray-500 tracking-tight leading-5">
@@ -45,7 +52,12 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 데이터 분석 및 통계
               </span>
             </div> */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 mb-1">
+              <div
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-1 ${
+                  selectedMenu === "users" ? "bg-gray-100" : "hover:bg-gray-100"
+                }`}
+                onClick={() => onMenuSelect("users")}
+              >
                 <span className="flex items-center gap-2">
                   <img
                     src="/userAdmin.svg"
@@ -55,7 +67,12 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                   사용자 관리
                 </span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors bg-gray-100 mb-1">
+              <div
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-1 ${
+                  selectedMenu === "posts" ? "bg-gray-100" : "hover:bg-gray-100"
+                }`}
+                onClick={() => onMenuSelect("posts")}
+              >
                 <span className="flex items-center gap-2">
                   <img
                     src="/postAdmin.svg"
@@ -65,7 +82,14 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                   게시물 관리
                 </span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 mb-1">
+              <div
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-1 ${
+                  selectedMenu === "reports"
+                    ? "bg-gray-100"
+                    : "hover:bg-gray-100"
+                }`}
+                onClick={() => onMenuSelect("reports")}
+              >
                 <span className="flex items-center gap-2">
                   <img
                     src="/reportAdmin.svg"
