@@ -71,15 +71,12 @@ export default function ReportsPage() {
         params.append("query", query.trim());
       }
 
-      const response = await fetch(
-        `http://54.180.54.51:8080/api/admin/reports?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`/api/proxy/reports?${params}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

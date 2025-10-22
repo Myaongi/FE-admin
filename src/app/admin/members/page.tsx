@@ -166,7 +166,23 @@ export default function MembersPage() {
   };
 
   // 초기 데이터 로드
+  // useEffect(() => {
+  //   fetchMembers();
+  // }, [pageSize]);
+  // 초기 데이터 로드
   useEffect(() => {
+    // 백엔드 연결 테스트
+    async function testConnection() {
+      try {
+        const res = await fetch("/api/proxy/members");
+        const data = await res.json();
+        console.log("✅ 실제 서버 응답:", data);
+      } catch (err) {
+        console.error("❌ 서버 연결 실패:", err);
+      }
+    }
+    testConnection();
+
     fetchMembers();
   }, [pageSize]);
 
@@ -404,9 +420,9 @@ export default function MembersPage() {
       render: (_value: unknown, member: Member) => (
         <button
           onClick={() => handleViewDetails(member.id)}
-          className="px-3 py-1.5 text-gray-700 rounded-md text-sm font-medium transition-colors bg-white hover:bg-gray-100 border border-gray-300"
+          className="px-3 py-1.5 text-gray-700 rounded-full text-sm font-medium transition-colors bg-white hover:bg-gray-100 border border-gray-300"
         >
-          활동 상세보기
+          상세보기
         </button>
       ),
     },

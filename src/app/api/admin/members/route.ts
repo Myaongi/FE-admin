@@ -80,12 +80,33 @@ export async function GET(request: NextRequest) {
       console.log("📦 목업 응답:", response);
       return NextResponse.json(response);
     } else {
-      // 실제 서버 API 호출 (향후 구현)
-      console.log("🌐 실제 서버 API 호출 (구현 예정)");
-      return NextResponse.json(
-        { error: "실제 서버 API는 아직 구현되지 않았습니다." },
-        { status: 501 }
-      );
+      try {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001";
+        const apiUrl = `${baseUrl}/api/proxy/members?page=${page}&size=${size}&query=${query}`;
+
+        const response = await fetch(apiUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeader && { Authorization: authHeader }),
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`서버 응답 오류: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("✅ 실제 서버 응답:", data);
+        return NextResponse.json(data);
+      } catch (err) {
+        console.error("❌ 서버 요청 실패:", err);
+        return NextResponse.json(
+          { error: "서버 요청에 실패했습니다." },
+          { status: 500 }
+        );
+      }
     }
   } catch (error) {
     console.error("API Error:", error);

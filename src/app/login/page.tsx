@@ -4,21 +4,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("test1@test.com");
-  const [password, setPassword] = useState("password1@");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [manualAccess, setManualAccess] = useState("");
+  const [manualRefresh, setManualRefresh] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setError("");
 
     try {
-      console.log("🚀 로그인 시도:", email);
-
-      const response = await fetch("/api/auth/login", {
+      const res = await fetch("/api/proxy/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -26,135 +30,144 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
-      console.log("📦 로그인 응답:", data);
-      console.log("🔍 응답 분석:", {
-        isSuccess: data.isSuccess,
-        code: data.code,
-        message: data.message,
-        hasAccessToken: !!data.result?.accessToken,
-        userId: data.result?.userId,
-        memberName: data.result?.memberName,
-      });
-
-      if (data.isSuccess) {
-        // 서버 응답 형식에 따라 토큰과 사용자 정보 추출
-        const token = data.result?.accessToken;
-        const userId = data.result?.userId;
-        const memberName = data.result?.memberName;
-
-        if (token) {
-          // 토큰을 localStorage에 저장
-          localStorage.setItem("accessToken", token);
-
-          // 사용자 정보 저장
-          const userInfo = {
-            userId: userId,
-            name: memberName,
-            email: email,
-            role: "admin",
-          };
-          localStorage.setItem("user", JSON.stringify(userInfo));
-
-          console.log(
-            "✅ 로그인 성공, 토큰 저장됨:",
-            token.substring(0, 20) + "..."
-          );
-          console.log("👤 사용자 정보:", userInfo);
-
-          // 메인 페이지로 리다이렉트
-          router.push("/");
-        } else {
-          setError("토큰을 받지 못했습니다. 서버 응답을 확인해주세요.");
-        }
-      } else {
-        setError(data.message || "로그인에 실패했습니다.");
+      if (!res.ok) {
+        const msg = `로그인 실패 (status: ${res.status})`;
+        throw new Error(msg);
       }
-    } catch (err) {
-      console.error("로그인 오류:", err);
-      setError("로그인 중 오류가 발생했습니다.");
+
+      const data = await res.json();
+
+      const accessToken = data?.result?.accessToken;
+      const refreshToken = data?.result?.refreshToken;
+
+      if (!accessToken) {
+        throw new Error("응답에 accessToken이 없습니다.");
+      }
+
+      // ✅ 토큰 저장
+      localStorage.setItem("accessToken", accessToken);
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
+      }
+
+      // ✅ 사용자 정보 저장 (선택)
+      const userInfo = {
+        userId: data?.result?.userId,
+        name: data?.result?.memberName,
+        email,
+        role: "admin",
+      };
+      localStorage.setItem("user", JSON.stringify(userInfo));
+
+      console.log("✅ 로그인 성공, 토큰 저장 완료");
+      router.push("/admin/members");
+    } catch (err: any) {
+      console.error("❌ 로그인 오류:", err);
+      setError(err?.message || "로그인에 실패했습니다.");
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  function handleManualSave() {
+    setError(null);
+
+    if (!manualAccess) {
+      setError("accessToken을 입력하세요.");
+      return;
+    }
+
+    // ✅ 토큰 수동 저장
+    localStorage.setItem("accessToken", manualAccess);
+    if (manualRefresh) {
+      localStorage.setItem("refreshToken", manualRefresh);
+    }
+
+    console.log("✅ 수동 토큰 저장 완료");
+    router.push("/admin/members");
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
+    <div className="max-w-md mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-6">🔐 로그인</h1>
+
+      <form onSubmit={handleLogin} className="space-y-4">
         <div>
-          <div className="mx-auto h-12 w-12 bg-sky-300 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">강</span>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            강아지킴이 관리자
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            관리자 계정으로 로그인하세요
-          </p>
+          <label className="block text-sm mb-1">이메일</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full border rounded px-3 py-2"
+            placeholder="이메일을 입력하세요."
+            required
+          />
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="space-y-4">
+        <div>
+          <label className="block text-sm mb-1">비밀번호</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border rounded px-3 py-2"
+            placeholder="비밀번호를 입력하세요."
+            required
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2 rounded bg-blue-500 text-white font-medium"
+        >
+          {loading ? "로그인 중..." : "로그인"}
+        </button>
+      </form>
+
+      {error && (
+        <div className="mt-4 p-3 bg-red-50 text-red-600 rounded">{error}</div>
+      )}
+
+      {/* 👇 토큰 수동 입력 섹션 */}
+      <div className="mt-8">
+        <button
+          className="text-sm underline text-gray-600"
+          onClick={() => setManualOpen((v) => !v)}
+        >
+          {manualOpen ? "수동 입력 닫기" : "토큰 수동 입력 (임시용)"}
+        </button>
+
+        {manualOpen && (
+          <div className="mt-4 space-y-3 p-4 border rounded">
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                이메일
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                placeholder="이메일을 입력하세요"
+              <label className="block text-sm mb-1">accessToken</label>
+              <textarea
+                value={manualAccess}
+                onChange={(e) => setManualAccess(e.target.value)}
+                className="w-full border rounded px-3 py-2 h-20"
+                placeholder="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzYxMTYyODgzLCJleHAiOjE3NjExNjU4ODN9.M9q4Eg8JZv3W9aseT94wA7isIxFh1cqFZ_ZX3t7z9g4
+"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">refreshToken (선택)</label>
+              <textarea
+                value={manualRefresh}
+                onChange={(e) => setManualRefresh(e.target.value)}
+                className="w-full border rounded px-3 py-2 h-20"
+                placeholder="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzYxMTYyODgzLCJleHAiOjE3NjExNjU4ODN9.M9q4Eg8JZv3W9aseT94wA7isIxFh1cqFZ_ZX3t7z9g4"
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                비밀번호
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                placeholder="비밀번호를 입력하세요"
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-
-          <div>
             <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleManualSave}
+              className="w-full py-2 rounded bg-gray-800 text-white font-medium"
             >
-              {loading ? "로그인 중..." : "로그인"}
+              토큰 저장하고 이동
             </button>
           </div>
-
-          <div className="text-center text-sm text-gray-600">
-            <p>테스트 계정:</p>
-            <p className="font-mono">test1@test.com / password1@</p>
-          </div>
-        </form>
+        )}
       </div>
     </div>
   );
