@@ -46,11 +46,17 @@ export async function GET(request: NextRequest) {
       const endIndex = startIndex + size;
       const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
 
+      // memberId를 id로 매핑
+      const mappedMembers = paginatedMembers.map((member) => ({
+        ...member,
+        id: member.memberId,
+      }));
+
       // API 응답 구조
       const response = {
         isSuccess: true,
         result: {
-          content: paginatedMembers,
+          content: mappedMembers,
           pageable: {
             pageNumber: page,
             pageSize: size,

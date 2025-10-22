@@ -64,15 +64,12 @@ export async function PATCH(
       }
 
       // 상태 업데이트 (실제로는 mockMembers 배열을 직접 수정할 수 없으므로 시뮬레이션)
-      const updatedMember = {
-        ...mockMembers[memberIndex],
-        status: status,
-      };
+      mockMembers[memberIndex].status = status;
 
       const response = {
         isSuccess: true,
-        result: updatedMember,
-        message: "상태가 성공적으로 변경되었습니다.",
+        code: "COMMON200",
+        message: "SUCCESS!",
       };
 
       console.log("상태 변경 API 응답:", response);

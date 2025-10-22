@@ -15,10 +15,11 @@ export async function OPTIONS() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const memberId = parseInt(params.id);
+    const { id } = await params;
+    const memberId = parseInt(id);
 
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");
@@ -59,9 +60,15 @@ export async function GET(
         );
       }
 
+      // memberId를 id로 매핑
+      const mappedMember = {
+        ...memberDetail,
+        id: memberDetail.memberId,
+      };
+
       const response = {
         isSuccess: true,
-        result: memberDetail,
+        result: mappedMember,
       };
 
       console.log("API 응답:", response);
@@ -167,10 +174,11 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const memberId = parseInt(params.id);
+    const { id } = await params;
+    const memberId = parseInt(id);
 
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");
@@ -212,12 +220,9 @@ export async function DELETE(
       // 삭제 시뮬레이션 (실제로는 mockMembers 배열을 직접 수정할 수 없으므로)
       const response = {
         isSuccess: true,
-        result: {
-          memberId: memberId,
-          isDeleted: true,
-          deletedAt: new Date().toISOString(),
-        },
-        message: "사용자가 성공적으로 삭제되었습니다.",
+        code: "COMMON200",
+        message: "SUCCESS!",
+        result: "계정 삭제가 완료되었습니다.",
       };
 
       console.log("사용자 삭제 API 응답:", response);

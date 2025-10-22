@@ -8,7 +8,6 @@ import PostDetailModal from "./PostDetailModal";
 import FilterButtons from "./FilterButtons";
 import AiToggle from "./AiToggle";
 import PostsTable from "./PostsTable";
-import UsersManagement from "./UsersManagement";
 
 interface Post {
   postId: number;
@@ -244,7 +243,9 @@ export default function MainContent({
   const renderContent = () => {
     switch (selectedMenu) {
       case "users":
-        return <UsersManagement />;
+        // 사용자 관리 페이지로 라우팅
+        router.push("/admin/members");
+        return null;
       case "posts":
         return (
           <div className="p-6 flex-1">

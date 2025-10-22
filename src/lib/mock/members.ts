@@ -12,7 +12,7 @@ export const mockMembers = [
     nickname: "lostandfound",
     email: "lostfound@example.com",
     joinedAt: [2024, 11, 2],
-    status: "DEACTIVATED",
+    status: "UNACTIVATED",
   },
   {
     memberId: 3,
@@ -33,7 +33,7 @@ export const mockMembers = [
     nickname: "animalhelper",
     email: "animalhelper@example.com",
     joinedAt: [2024, 9, 20],
-    status: "DEACTIVATED",
+    status: "UNACTIVATED",
   },
 ];
 

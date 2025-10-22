@@ -20,7 +20,7 @@ interface PostDetail {
   longitude: number;
 }
 
-import StatusBadge from "../StatusBadge";
+import StatusBadge from "../badge/StatusBadge";
 
 interface PostTabProps {
   postDetail: PostDetail;
