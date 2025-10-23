@@ -7,6 +7,7 @@ export interface Report {
   reporterName: string;
   reportedAt: number[];
   status: "대기 중" | "처리완료";
+  targetPostId?: number;
 }
 
 export const mockReports: Report[] = [
@@ -18,6 +19,7 @@ export const mockReports: Report[] = [
     reporterName: "lee1",
     reportedAt: [2025, 1, 15, 22, 0, 41],
     status: "대기 중",
+    targetPostId: 101,
   },
   {
     reportId: 2,
@@ -27,6 +29,7 @@ export const mockReports: Report[] = [
     reporterName: "lee2",
     reportedAt: [2025, 1, 14, 22, 30, 10],
     status: "처리완료",
+    targetPostId: 102,
   },
   {
     reportId: 3,
@@ -36,6 +39,7 @@ export const mockReports: Report[] = [
     reporterName: "lee3",
     reportedAt: [2025, 1, 13, 15, 45, 22],
     status: "대기 중",
+    targetPostId: 103,
   },
   {
     reportId: 4,
@@ -45,6 +49,7 @@ export const mockReports: Report[] = [
     reporterName: "lee4",
     reportedAt: [2025, 1, 12, 10, 20, 15],
     status: "처리완료",
+    targetPostId: 104,
   },
   {
     reportId: 5,
@@ -54,6 +59,7 @@ export const mockReports: Report[] = [
     reporterName: "lee5",
     reportedAt: [2025, 1, 11, 18, 15, 30],
     status: "대기 중",
+    targetPostId: 105,
   },
   {
     reportId: 6,
@@ -63,6 +69,7 @@ export const mockReports: Report[] = [
     reporterName: "lee6",
     reportedAt: [2025, 1, 10, 14, 30, 45],
     status: "처리완료",
+    targetPostId: 106,
   },
   {
     reportId: 7,
@@ -72,6 +79,7 @@ export const mockReports: Report[] = [
     reporterName: "lee7",
     reportedAt: [2025, 1, 9, 20, 10, 12],
     status: "대기 중",
+    targetPostId: 107,
   },
   {
     reportId: 8,
@@ -81,5 +89,6 @@ export const mockReports: Report[] = [
     reporterName: "lee8",
     reportedAt: [2025, 1, 8, 16, 25, 18],
     status: "처리완료",
+    targetPostId: 108,
   },
 ];

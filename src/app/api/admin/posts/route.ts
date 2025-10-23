@@ -7,6 +7,7 @@ const mockPosts = [
     postId: 1,
     type: "LOST",
     status: "실종",
+    thumbnailUrl: "https://pbs.twimg.com/media/Fw4w5xeagAAUM80.jpg:large",
     title: '골든리트리버 "몽이" 찾아요',
     authorName: "멍멍이주인",
     createdAt: [2024, 12, 20],

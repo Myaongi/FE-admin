@@ -16,10 +16,11 @@ export async function OPTIONS() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { type: string; id: string } }
 ) {
   try {
     const postId = parseInt(params.id);
+    const postType = params.type;
 
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");
@@ -58,6 +59,21 @@ export async function GET(
         );
       }
 
+      // 타입 검증
+      if (postDetail.type !== postType) {
+        return NextResponse.json(
+          { error: "게시글 타입이 일치하지 않습니다." },
+          {
+            status: 400,
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
+          }
+        );
+      }
+
       const response = {
         isSuccess: true,
         result: postDetail,
@@ -79,7 +95,7 @@ export async function GET(
       const authHeader = request.headers.get("authorization");
       const token = authHeader?.replace("Bearer ", "") || "";
 
-      console.log("🔍 전체 목록에서 포스트 찾기:", postId);
+      console.log("🔍 전체 목록에서 포스트 찾기:", postId, "타입:", postType);
       console.log(
         "🔑 사용할 토큰:",
         token ? token.substring(0, 20) + "..." : "없음"
@@ -102,9 +118,9 @@ export async function GET(
         if (response.isSuccess && response.result) {
           console.log("✅ 전체 목록 응답 성공");
 
-          // 해당 postId를 가진 포스트 찾기
+          // 해당 postId와 타입을 가진 포스트 찾기
           const targetPost = response.result.content.find(
-            (post: any) => post.postId === postId
+            (post: any) => post.postId === postId && post.type === postType
           );
 
           if (targetPost) {
@@ -126,7 +142,7 @@ export async function GET(
               }
             );
           } else {
-            console.log("❌ 포스트를 찾을 수 없음:", postId);
+            console.log("❌ 포스트를 찾을 수 없음:", postId, "타입:", postType);
             return NextResponse.json(
               { error: "게시글을 찾을 수 없습니다." },
               {

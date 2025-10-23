@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminTable from "@/components/tables/AdminTable";
 import TablePagination from "@/components/tables/TablePagination";
+import ReportDetailModal from "@/components/ReportDetailModal";
+import PostDetailModal from "@/components/PostDetailModal";
 import { mockReports, Report } from "@/lib/mock/reports";
 
 export default function ReportsPage() {
@@ -15,6 +17,16 @@ export default function ReportsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+  const [selectedReportType, setSelectedReportType] = useState<
+    "LOST" | "FOUND" | null
+  >(null);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [selectedPostType, setSelectedPostType] = useState<
+    "LOST" | "FOUND" | null
+  >(null);
 
   // 신고 내역 목록 조회 (목업 데이터 사용)
   const fetchReports = async (page: number = 0) => {
@@ -56,6 +68,40 @@ export default function ReportsPage() {
     setPageSize(size);
     setCurrentPage(0);
     fetchReports(0);
+  };
+
+  // 신고 상세보기 핸들러
+  const handleReportDetailClick = (
+    reportId: number,
+    reportType: "LOST" | "FOUND"
+  ) => {
+    setSelectedReportId(reportId);
+    setSelectedReportType(reportType);
+    setIsReportModalOpen(true);
+  };
+
+  // 게시물 상세보기 핸들러
+  const handlePostDetailClick = (
+    postId: number,
+    postType: "LOST" | "FOUND"
+  ) => {
+    setSelectedPostId(postId);
+    setSelectedPostType(postType);
+    setIsPostModalOpen(true);
+  };
+
+  // 신고 모달 닫기 핸들러
+  const handleCloseReportModal = () => {
+    setIsReportModalOpen(false);
+    setSelectedReportId(null);
+    setSelectedReportType(null);
+  };
+
+  // 게시물 모달 닫기 핸들러
+  const handleClosePostModal = () => {
+    setIsPostModalOpen(false);
+    setSelectedPostId(null);
+    setSelectedPostType(null);
   };
 
   // 날짜 포맷팅
@@ -123,9 +169,11 @@ export default function ReportsPage() {
     {
       key: "targetTitle",
       label: "대상 글 제목",
-      render: (value: string) => (
+      render: (value: string, report: Report) => (
         <button
-          onClick={() => alert("신고 상세보기 테스트")}
+          onClick={() =>
+            handlePostDetailClick(report.targetPostId || 0, report.type)
+          }
           className="text-blue-600 hover:text-blue-800 hover:underline text-left"
         >
           {value}
@@ -143,8 +191,20 @@ export default function ReportsPage() {
     },
     {
       key: "status",
-      label: "상태",
+      label: "신고 상태",
       render: (value: string) => renderStatusBadge(value),
+    },
+    {
+      key: "reportDetail",
+      label: "신고 상세보기",
+      render: (_value: unknown, report: Report) => (
+        <button
+          onClick={() => handleReportDetailClick(report.reportId, report.type)}
+          className="px-3 py-1.5 text-gray-700 rounded-full text-sm font-medium transition-colors bg-white hover:bg-gray-100 border border-gray-300"
+        >
+          상세보기
+        </button>
+      ),
     },
     {
       key: "actions",
@@ -191,6 +251,22 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+
+      {/* 신고 상세보기 모달 */}
+      <ReportDetailModal
+        isOpen={isReportModalOpen}
+        onClose={handleCloseReportModal}
+        reportId={selectedReportId}
+        reportType={selectedReportType}
+      />
+
+      {/* 게시물 상세보기 모달 */}
+      <PostDetailModal
+        isOpen={isPostModalOpen}
+        onClose={handleClosePostModal}
+        postId={selectedPostId}
+        postType={selectedPostType}
+      />
     </>
   );
 }

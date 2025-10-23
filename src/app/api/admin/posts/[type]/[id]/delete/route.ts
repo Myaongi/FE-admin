@@ -3,10 +3,11 @@ import { getApiClient } from "@/lib/api-client";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { type: string; id: string } }
 ) {
   try {
     const postId = parseInt(params.id);
+    const postType = params.type as "LOST" | "FOUND";
 
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");
@@ -43,7 +44,7 @@ export async function PATCH(
       const authHeader = request.headers.get("authorization");
       const token = authHeader?.replace("Bearer ", "") || "";
 
-      const response = await apiClient.deletePost(postId, token);
+      const response = await apiClient.deletePost(postId, postType, token);
 
       if (response.success || response.isSuccess) {
         return NextResponse.json(response);

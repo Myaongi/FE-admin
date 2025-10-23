@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AdminTable from "@/components/tables/AdminTable";
-import TablePagination from "@/components/tables/TablePagination";
-import SearchFilter from "@/components/filters/SearchFilter";
+import axios from "axios";
 import PostDetailModal from "@/components/PostDetailModal";
+import FilterButtons from "@/components/FilterButtons";
+import AiToggle from "@/components/AiToggle";
+import PostsTable from "@/components/PostsTable";
 
 interface Post {
   postId: number;
   type: "LOST" | "FOUND";
   status: string;
+  thumbnailUrl: string;
   title: string;
   authorName: string;
   createdAt: number[];
@@ -31,42 +33,68 @@ interface PostsResponse {
 
 export default function PostsPage() {
   const router = useRouter();
+  const [filter, setFilter] = useState<"ALL" | "FOUND" | "LOST">("ALL");
+  const [aiOnly, setAiOnly] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [totalElements, setTotalElements] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<
     "LOST" | "FOUND" | null
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 게시물 목록 조회
-  const fetchPosts = async (query: string = "", page: number = 0) => {
-    setLoading(true);
-    setError(null);
+  const handleDetailClick = (postId: number) => {
+    const post = posts.find((p) => p.postId === postId);
+    if (post) {
+      setSelectedPostId(postId);
+      setSelectedPostType(post.type);
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPostId(null);
+    setSelectedPostType(null);
+  };
+
+  const handleModalDelete = (postId: number, postType: "LOST" | "FOUND") => {
+    // 모달에서 삭제된 경우 테이블 상태 업데이트
+    setPosts((prevPosts) =>
+      prevPosts.map((p) =>
+        p.postId === postId
+          ? {
+              ...p,
+              isDeleted: true,
+              deletedAt: new Date().toISOString(),
+            }
+          : p
+      )
+    );
+  };
+
+  const handleDeleteClick = async (postId: number) => {
+    if (!confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+      return;
+    }
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        router.push("/login");
+      const post = posts.find((p) => p.postId === postId);
+      if (!post) {
+        alert("게시글을 찾을 수 없습니다.");
         return;
       }
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        size: pageSize.toString(),
-      });
-
-      if (query.trim()) {
-        params.append("query", query.trim());
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        alert("인증 토큰이 없습니다.");
+        return;
       }
 
-      const response = await fetch(`/api/posts?${params}`, {
+      // API 삭제 호출 (apiClient 사용)
+      const response = await fetch(`/api/admin/posts/${postId}/delete`, {
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
@@ -80,119 +108,106 @@ export default function PostsPage() {
       const data = await response.json();
 
       if (data.isSuccess) {
-        const result = data.result as PostsResponse;
-        setPosts(result.content);
-        setTotalElements(result.totalElements);
-        setTotalPages(result.totalPages);
-        setCurrentPage(result.page);
+        // 프론트엔드 상태 즉시 업데이트
+        setPosts((prevPosts) =>
+          prevPosts.map((p) =>
+            p.postId === postId
+              ? {
+                  ...p,
+                  isDeleted: true,
+                  deletedAt: data.result?.deletedAt || new Date().toISOString(),
+                }
+              : p
+          )
+        );
+        alert("게시글이 삭제되었습니다.");
       } else {
-        throw new Error(data.message || data.error || "API 응답 오류");
+        throw new Error(data.message || data.error || "삭제에 실패했습니다.");
+      }
+    } catch (error: any) {
+      console.error("게시글 삭제 오류:", error);
+      alert(error.message || "게시글 삭제에 실패했습니다.");
+    }
+  };
+
+  // API 호출 함수
+  const fetchPosts = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+
+      if (!accessToken) {
+        throw new Error("인증 토큰이 없습니다.");
+      }
+
+      console.log(
+        "🔑 토큰으로 API 호출:",
+        accessToken.substring(0, 20) + "..."
+      );
+      console.log(`📊 필터: ${filter}, AI만: ${aiOnly}`);
+
+      const response = await axios.get("/api/admin/posts", {
+        params: {
+          type: filter,
+          aiOnly: aiOnly,
+          page: 0,
+          size: 20,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      console.log("📦 API 응답:", response.data);
+
+      if (response.data.isSuccess) {
+        const data = response.data.result.content;
+        // 중복된 postId 제거 (같은 postId가 있으면 첫 번째 것만 유지)
+        const uniquePosts = data.filter(
+          (post: any, index: number, self: any[]) =>
+            index === self.findIndex((p: any) => p.postId === post.postId)
+        );
+        setPosts(uniquePosts);
+      } else {
+        throw new Error(
+          response.data.message || response.data.error || "API 응답 오류"
+        );
       }
     } catch (err: any) {
-      console.error("게시물 목록 조회 오류:", err);
-      setError("게시물 목록을 불러오는데 실패했습니다.");
+      console.error("API 호출 오류:", err);
+
+      // 에러 메시지 설정
+      if (err.response?.status === 404) {
+        setError("API 엔드포인트를 찾을 수 없습니다.");
+      } else if (err.response?.status === 401) {
+        setError("인증이 필요합니다.");
+      } else if (err.response?.status === 500) {
+        setError("서버 오류가 발생했습니다.");
+      } else {
+        setError("게시글을 불러오는데 실패했습니다.");
+      }
+
+      // 에러 발생 시 빈 배열로 설정
       setPosts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleModalClose = () => {
-    setIsModalOpen(false);
-    setSelectedPostId(null);
-    setSelectedPostType(null);
-  };
-
-  // 초기 데이터 로드
+  // 필터 또는 AI 토글 변경 시 API 호출
   useEffect(() => {
     fetchPosts();
-  }, [pageSize]);
+  }, [filter, aiOnly]);
 
-  // 검색 핸들러
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setCurrentPage(0);
-    fetchPosts(query, 0);
+  // 소제목 동적 변경
+  const getCardTitle = () => {
+    if (filter === "ALL") return "전체 게시물 목록";
+    if (filter === "FOUND") return "발견했어요 게시물 목록";
+    if (filter === "LOST") return "잃어버렸어요 게시물 목록";
+    return "전체 게시물 목록";
   };
-
-  // 페이지 변경 핸들러
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    fetchPosts(searchQuery, page);
-  };
-
-  // 페이지 크기 변경 핸들러
-  const handleSizeChange = (size: number) => {
-    setPageSize(size);
-    setCurrentPage(0);
-    fetchPosts(searchQuery, 0);
-  };
-
-  // 날짜 포맷팅
-  const formatDate = (dateArray: number[]) => {
-    if (!dateArray || dateArray.length < 3) return "-";
-    const [year, month, day] = dateArray;
-    return `${year}-${month.toString().padStart(2, "0")}-${day
-      .toString()
-      .padStart(2, "0")}`;
-  };
-
-  // 상태 배지 렌더링
-  const renderStatusBadge = (status: string) => {
-    const statusMap = {
-      실종: {
-        text: "실종",
-        className: "bg-pink-100 text-gray-600 border border-pink-300",
-      },
-      발견: {
-        text: "발견",
-        className: "bg-yellow-100 text-gray-600 border border-yellow-400",
-      },
-      "귀가 완료": {
-        text: "귀가 완료",
-        className: "bg-blue-100 text-gray-600 border border-blue-300",
-      },
-    };
-
-    const statusInfo = statusMap[status as keyof typeof statusMap] || {
-      text: status,
-      className: "bg-pink-100 text-gray-600 border border-pink-300",
-    };
-
-    return (
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-center tracking-normal leading-4 ${statusInfo.className}`}
-      >
-        {statusInfo.text}
-      </span>
-    );
-  };
-
-  // 테이블 컬럼 정의
-  const columns = [
-    {
-      key: "status",
-      label: "상태",
-      render: (value: string) => renderStatusBadge(value),
-    },
-    {
-      key: "title",
-      label: "제목",
-    },
-    {
-      key: "authorName",
-      label: "작성자",
-    },
-    {
-      key: "createdAt",
-      label: "작성일",
-      render: (value: number[]) => formatDate(value),
-    },
-    {
-      key: "region",
-      label: "위치",
-    },
-  ];
 
   return (
     <>
@@ -204,49 +219,34 @@ export default function PostsPage() {
         </div>
 
         <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
-          <div className="mb-6">
-            <SearchFilter
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSearch={handleSearch}
-              placeholder="제목 또는 작성자로 검색하세요"
-            />
+          <div className="mb-5">
+            <h3 className="text-base font-bold text-gray-900 tracking-tight leading-4">
+              {getCardTitle()}
+            </h3>
           </div>
 
-          <AdminTable
-            data={posts}
-            columns={columns}
+          <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
+            <FilterButtons filter={filter} onFilterChange={setFilter} />
+            <AiToggle aiOnly={aiOnly} onToggle={() => setAiOnly(!aiOnly)} />
+          </div>
+
+          <PostsTable
+            posts={posts}
             loading={loading}
             error={error}
-            emptyMessage="게시물이 없습니다."
-            onRowClick={(item) => {
-              setSelectedPostId(item.postId);
-              setSelectedPostType(item.type);
-              setIsModalOpen(true);
-            }}
+            onDetailClick={handleDetailClick}
+            onDeleteClick={handleDeleteClick}
           />
-
-          {totalPages > 1 && (
-            <div className="mt-6">
-              <TablePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalElements={totalElements}
-                pageSize={pageSize}
-                onPageChange={handlePageChange}
-                onSizeChange={handleSizeChange}
-              />
-            </div>
-          )}
         </div>
       </div>
 
       {/* 상세보기 모달 */}
       <PostDetailModal
         isOpen={isModalOpen}
-        onClose={handleModalClose}
+        onClose={handleCloseModal}
         postId={selectedPostId}
         postType={selectedPostType}
+        onDelete={handleModalDelete}
       />
     </>
   );

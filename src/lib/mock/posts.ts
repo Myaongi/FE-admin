@@ -4,6 +4,7 @@ export const mockPostDetails: Record<number, any> = {
     postId: 1,
     type: "LOST",
     status: "실종",
+    thumbnailUrl: "https://pbs.twimg.com/media/Fw4w5xeagAAUM80.jpg:large",
     title: "쓰꾸삐를.. 잃어버렸습니다",
     authorName: "lee3",
     createdAt: [2025, 10, 12, 21, 6, 0, 403487000],

@@ -4,6 +4,7 @@ interface Post {
   postId: number;
   type: "LOST" | "FOUND";
   status: string;
+  thumbnailUrl: string;
   title: string;
   authorName: string;
   createdAt: number[];
@@ -31,6 +32,7 @@ export default function PostsTable({
 }: PostsTableProps) {
   // 대표사진 가져오기
   const getThumbnail = (post: Post) => {
+    if (post.thumbnailUrl) return post.thumbnailUrl;
     if (post.aiImage) return post.aiImage;
     if (Array.isArray(post.realImages) && post.realImages.length > 0)
       return post.realImages[0];

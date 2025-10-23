@@ -1,13 +1,10 @@
-// next.config.js
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   images: {
-    unoptimized: true,
     remotePatterns: [
       {
-        protocol: "http",
-        hostname: "54.180.54.51",
-        port: "8080",
+        protocol: "https",
+        hostname: "gangajikimi-server.s3.ap-northeast-2.amazonaws.com",
         pathname: "/**",
       },
     ],

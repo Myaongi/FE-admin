@@ -21,6 +21,7 @@ export interface Post {
   postId: number;
   type: "LOST" | "FOUND";
   status: string;
+  thumbnailUrl: string;
   title: string;
   authorName: string;
   createdAt: number[];
@@ -279,39 +280,58 @@ class ApiClient {
     );
   }
 
-  // 게시글 상세 조회 - GET /api/admin/posts/{postId}?type={type}
+  // 게시글 상세 조회 - GET /api/admin/posts/{type}/{postId}
   async getPostDetail(
     postId: number,
     type: "LOST" | "FOUND",
     accessToken?: string
   ): Promise<ApiResponse<PostDetail>> {
-    const endpoint = `/api/admin/posts/${postId}?type=${type}`;
+    const endpoint = `/api/admin/posts/${type}/${postId}`;
 
     console.log(`🔍 게시글 상세 조회: ${endpoint}`);
 
-    return await this.request<PostDetail>(
-      endpoint,
-      {
-        method: "GET",
-      },
-      accessToken
-    );
+    try {
+      const response = await this.request<PostDetail>(
+        endpoint,
+        {
+          method: "GET",
+        },
+        accessToken
+      );
+
+      // 게시글 상세 조회는 단일 객체를 반환하므로 content 배열 처리를 하지 않음
+      if (response.isSuccess && response.result) {
+        console.log("📋 게시글 상세 응답:", response.result);
+        return {
+          success: true,
+          isSuccess: true,
+          result: response.result,
+          message: response.message,
+          code: response.code,
+        };
+      } else {
+        return response;
+      }
+    } catch (error) {
+      console.error("게시글 상세 조회 오류:", error);
+      throw error;
+    }
   }
 
-  // 게시글 삭제 - DELETE /api/admin/posts/{postId}/delete?type={type}
+  // 게시글 삭제 - PATCH /api/admin/posts/{type}/{postId}/delete
   async deletePost(
     postId: number,
     type: "LOST" | "FOUND",
     accessToken?: string
   ): Promise<ApiResponse<DeleteResponse>> {
-    const endpoint = `/api/admin/posts/${postId}/delete?type=${type}`;
+    const endpoint = `/api/admin/posts/${type}/${postId}/delete`;
 
-    console.log(`🔍 게시글 삭제: ${endpoint}`);
+    console.log(`🗑️ 게시글 삭제: ${endpoint}`);
 
     return await this.request<DeleteResponse>(
       endpoint,
       {
-        method: "DELETE",
+        method: "PATCH",
       },
       accessToken
     );

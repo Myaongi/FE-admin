@@ -5,6 +5,7 @@ interface PostDetail {
   postId: number;
   type: "LOST" | "FOUND";
   status: string;
+  thumbnailUrl: string;
   title: string;
   authorName: string;
   createdAt: number[];
@@ -83,11 +84,14 @@ export default function DogTab({ postDetail, getGenderText }: DogTabProps) {
       </div>
 
       {/* 강아지 사진 */}
-      {(postDetail.aiImage ||
+      {(postDetail.thumbnailUrl ||
+        postDetail.aiImage ||
         (postDetail.realImages && postDetail.realImages.length > 0)) &&
         (() => {
-          // AI 이미지와 일반 이미지는 공존할 수 없음
-          const allImages = postDetail.aiImage
+          // thumbnailUrl 우선, AI 이미지와 일반 이미지는 공존할 수 없음
+          const allImages = postDetail.thumbnailUrl
+            ? [postDetail.thumbnailUrl]
+            : postDetail.aiImage
             ? [postDetail.aiImage]
             : postDetail.realImages || [];
           const total = allImages.length;
@@ -129,7 +133,10 @@ export default function DogTab({ postDetail, getGenderText }: DogTabProps) {
                 {imagesToRender.map((src, idx) => {
                   const globalIndex = idx; // since slice starts at 0
                   const isRepresentative = globalIndex === 0; // 첫 번째 썸네일에 라벨 표시
-                  const isAiImage = postDetail.aiImage && globalIndex === 0; // AI 이미지가 있으면 첫 번째만 뱃지
+                  const isAiImage =
+                    postDetail.aiImage &&
+                    globalIndex === 0 &&
+                    !postDetail.thumbnailUrl; // thumbnailUrl이 없고 AI 이미지가 있으면 첫 번째만 뱃지
                   return (
                     <button
                       key={src + idx}

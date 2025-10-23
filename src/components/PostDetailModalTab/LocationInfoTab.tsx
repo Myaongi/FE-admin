@@ -5,6 +5,7 @@ interface PostDetail {
   postId: number;
   type: "LOST" | "FOUND";
   status: string;
+  thumbnailUrl: string;
   title: string;
   authorName: string;
   createdAt: number[];

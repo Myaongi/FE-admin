@@ -66,14 +66,38 @@ export default function PostDetailModal({
           code: response.code,
         });
 
-        // 타입 검증
-        if (!data.type || (data.type !== "LOST" && data.type !== "FOUND")) {
+        // content 객체에서 실제 데이터 추출
+        const postData = (data as any).content || data;
+        console.log("📋 추출된 게시글 데이터:", postData);
+
+        // 타입 검증 - 더 자세한 로그 출력
+        console.log("🔍 타입 검증:", {
+          receivedType: postData.type,
+          expectedType: type,
+          typeCheck: postData.type === type,
+          isValidType: postData.type === "LOST" || postData.type === "FOUND",
+        });
+
+        if (!postData.type) {
           throw new Error(
-            "잘못된 게시물 타입입니다. LOST 또는 FOUND 타입이어야 합니다."
+            `게시물 타입이 없습니다. 받은 데이터: ${JSON.stringify(postData)}`
           );
         }
 
-        setPostDetail(data);
+        if (postData.type !== "LOST" && postData.type !== "FOUND") {
+          throw new Error(
+            `잘못된 게시물 타입입니다. 받은 타입: "${postData.type}", 예상 타입: "LOST" 또는 "FOUND"`
+          );
+        }
+
+        if (postData.type !== type) {
+          console.warn(
+            `⚠️ 타입 불일치: 받은 타입 "${postData.type}", 요청한 타입 "${type}"`
+          );
+          // 타입이 다르더라도 계속 진행 (서버에서 다른 타입의 데이터를 반환할 수 있음)
+        }
+
+        setPostDetail(postData);
       } else {
         throw new Error(response.error || "API 응답 오류");
       }
