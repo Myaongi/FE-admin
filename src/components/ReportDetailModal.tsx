@@ -24,21 +24,7 @@ interface ReportDetailModalProps {
   reportType: "LOST" | "FOUND" | null;
 }
 
-// 목업 데이터
-const mockReportDetail: ReportDetail = {
-  reportId: 1,
-  type: "LOST",
-  reason: "스팸/홍보/도배",
-  reporterName: "lee2",
-  reportedAt: [2025, 10, 13, 22, 0, 23],
-  targetPostId: 6,
-  targetTitle: "도배 홍보(은 팝니다)",
-  targetContent: "귀여운 목걸이",
-  imagePreview: null,
-  realImages: [],
-  status: "대기 중",
-  detailReason: "도배 홍보!!",
-};
+// 목업 데이터 제거 - 실제 API 사용
 
 export default function ReportDetailModal({
   isOpen,
@@ -69,23 +55,22 @@ export default function ReportDetailModal({
     setError(null);
 
     try {
-      // 목업 데이터 사용 (실제 API 연동 시 교체)
-      await new Promise((resolve) => setTimeout(resolve, 500)); // 로딩 시뮬레이션
-      setReportDetail(mockReportDetail);
-
-      // 실제 API 호출 (주석 처리)
-      /*
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
         throw new Error("인증 토큰이 없습니다.");
       }
 
+      console.log(
+        `🔍 신고 상세 조회: type=${reportType}, reportId=${reportId}`
+      );
+
       const response = await fetch(
-        `http://54.180.54.51:8080/api/admin/reports/${reportType}/${reportId}`,
+        `/api/admin/reports/${reportType}/${reportId}`,
         {
+          method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
@@ -95,13 +80,15 @@ export default function ReportDetailModal({
       }
 
       const data = await response.json();
-      
-      if (data.isSuccess) {
-        setReportDetail(data.result);
+      console.log("📦 신고 상세 조회 응답:", data);
+
+      if (data.isSuccess && data.result) {
+        setReportDetail(data.result.content);
       } else {
-        throw new Error(data.message || "신고 상세 정보를 불러오는데 실패했습니다.");
+        throw new Error(
+          data.error || "신고 상세 정보를 불러오는데 실패했습니다."
+        );
       }
-      */
     } catch (err: any) {
       console.error("신고 상세 정보 조회 오류:", err);
       setError("데이터를 불러오지 못했습니다.");

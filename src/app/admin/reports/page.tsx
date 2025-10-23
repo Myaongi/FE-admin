@@ -6,7 +6,7 @@ import AdminTable from "@/components/tables/AdminTable";
 import TablePagination from "@/components/tables/TablePagination";
 import ReportDetailModal from "@/components/ReportDetailModal";
 import PostDetailModal from "@/components/PostDetailModal";
-import { mockReports, Report } from "@/lib/mock/reports";
+import { Report } from "@/lib/mock/reports";
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -28,21 +28,48 @@ export default function ReportsPage() {
     "LOST" | "FOUND" | null
   >(null);
 
-  // 신고 내역 목록 조회 (목업 데이터 사용)
+  // 신고 내역 목록 조회 (실제 API 호출)
   const fetchReports = async (page: number = 0) => {
     setLoading(true);
     setError(null);
 
     try {
-      // 페이지네이션 계산
-      const startIndex = page * pageSize;
-      const endIndex = startIndex + pageSize;
-      const paginatedReports = mockReports.slice(startIndex, endIndex);
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        throw new Error("인증 토큰이 없습니다.");
+      }
 
-      setReports(paginatedReports);
-      setTotalElements(mockReports.length);
-      setTotalPages(Math.ceil(mockReports.length / pageSize));
-      setCurrentPage(page);
+      console.log(`🔥 신고 내역 API 호출: page=${page}, size=${pageSize}`);
+
+      const response = await fetch(
+        `/api/admin/reports?page=${page}&size=${pageSize}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("📦 신고 내역 API 응답:", data);
+
+      if (data.isSuccess && data.result) {
+        const reportsData = data.result.content || data.result;
+        setReports(reportsData);
+        setTotalElements(data.result.totalElements || reportsData.length);
+        setTotalPages(
+          data.result.totalPages || Math.ceil(reportsData.length / pageSize)
+        );
+        setCurrentPage(page);
+      } else {
+        throw new Error(data.error || "신고 내역을 불러올 수 없습니다.");
+      }
     } catch (err: any) {
       console.error("신고 내역 조회 오류:", err);
       setError("신고 내역을 불러오는데 실패했습니다.");
@@ -104,6 +131,84 @@ export default function ReportsPage() {
     setSelectedPostType(null);
   };
 
+  // 신고 무시 처리 핸들러
+  const handleIgnore = async (type: string, reportId: number) => {
+    if (!confirm("정말 이 신고를 무시 처리하시겠습니까?")) return;
+
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        alert("인증 토큰이 없습니다.");
+        return;
+      }
+
+      console.log(`🩶 신고 무시 처리: type=${type}, reportId=${reportId}`);
+
+      const response = await fetch(
+        `/api/admin/reports/${type}/${reportId}/ignore`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      console.log("📦 신고 무시 처리 응답:", data);
+
+      if (response.ok && data.isSuccess) {
+        alert("✅ 신고 무효처리가 완료되었습니다.");
+        fetchReports(currentPage); // 목록 재조회
+      } else {
+        alert("❌ 신고 무효처리에 실패했습니다: " + (data.message || "오류"));
+      }
+    } catch (err) {
+      console.error("신고 무시 처리 오류:", err);
+      alert("서버 오류가 발생했습니다.");
+    }
+  };
+
+  // 신고 게시글 삭제 핸들러
+  const handleDelete = async (type: string, reportId: number) => {
+    if (!confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
+
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        alert("인증 토큰이 없습니다.");
+        return;
+      }
+
+      console.log(`🧹 신고 게시글 삭제: type=${type}, reportId=${reportId}`);
+
+      const response = await fetch(
+        `/api/admin/reports/${type}/${reportId}/delete`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      console.log("📦 신고 게시글 삭제 응답:", data);
+
+      if (response.ok && data.isSuccess) {
+        alert("🗑️ 신고된 게시글이 성공적으로 삭제되었습니다.");
+        fetchReports(currentPage); // 목록 재조회
+      } else {
+        alert("❌ 삭제에 실패했습니다: " + (data.message || "오류 발생"));
+      }
+    } catch (err) {
+      console.error("신고 게시글 삭제 오류:", err);
+      alert("서버 오류가 발생했습니다.");
+    }
+  };
+
   // 날짜 포맷팅
   const formatDate = (dateArray: number[]) => {
     if (!dateArray || dateArray.length < 3) return "-";
@@ -145,13 +250,13 @@ export default function ReportsPage() {
     return (
       <div className="flex gap-2">
         <button
-          onClick={() => alert("삭제 기능 테스트")}
+          onClick={() => handleDelete(report.type, report.reportId)}
           className="px-3 py-1.5 bg-red-100 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-200 transition-colors"
         >
           삭제
         </button>
         <button
-          onClick={() => alert("무시 기능 테스트")}
+          onClick={() => handleIgnore(report.type, report.reportId)}
           className="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
         >
           무시

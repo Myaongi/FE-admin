@@ -288,6 +288,43 @@ export default function MembersPage() {
         alert(`계정이 ${statusKorean} 상태로 변경되었습니다.`);
         handleCloseDropdown();
 
+        // 상태가 UNACTIVATED로 변경된 경우 현재 날짜를 로컬 스토리지에 저장
+        if (status === "UNACTIVATED") {
+          const deactivatedAt = new Date();
+          const deactivatedAtArray = [
+            deactivatedAt.getFullYear(),
+            deactivatedAt.getMonth() + 1,
+            deactivatedAt.getDate(),
+          ];
+
+          // 로컬 스토리지에서 기존 비활성화 사용자 데이터 가져오기
+          const deactivatedUsers = JSON.parse(
+            localStorage.getItem("deactivatedUsers") || "{}"
+          );
+          deactivatedUsers[memberId] = deactivatedAtArray;
+          localStorage.setItem(
+            "deactivatedUsers",
+            JSON.stringify(deactivatedUsers)
+          );
+
+          console.log(
+            `📅 사용자 ${memberId} 비활성화 날짜 저장:`,
+            deactivatedAtArray
+          );
+        } else if (status === "ACTIVATED") {
+          // 활성화된 경우 비활성화 날짜 제거
+          const deactivatedUsers = JSON.parse(
+            localStorage.getItem("deactivatedUsers") || "{}"
+          );
+          delete deactivatedUsers[memberId];
+          localStorage.setItem(
+            "deactivatedUsers",
+            JSON.stringify(deactivatedUsers)
+          );
+
+          console.log(`📅 사용자 ${memberId} 비활성화 날짜 제거`);
+        }
+
         // 로컬 상태 즉시 업데이트
         setMembers((prevMembers) =>
           prevMembers.map((member) =>

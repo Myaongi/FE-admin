@@ -336,6 +336,82 @@ class ApiClient {
       accessToken
     );
   }
+
+  // 신고 내역 조회 - GET /api/admin/reports
+  async getReports(
+    page: number = 0,
+    size: number = 20,
+    accessToken?: string
+  ): Promise<ApiResponse<any>> {
+    const endpoint = `/api/admin/reports?page=${page}&size=${size}`;
+
+    console.log(`🔥 Reports API 호출됨! ${endpoint}`);
+
+    return await this.request<any>(
+      endpoint,
+      {
+        method: "GET",
+      },
+      accessToken
+    );
+  }
+
+  // 신고 무시 처리 - PATCH /api/admin/reports/{type}/{reportId}/ignore
+  async ignoreReport(
+    type: string,
+    reportId: number,
+    accessToken?: string
+  ): Promise<ApiResponse<any>> {
+    const endpoint = `/api/admin/reports/${type}/${reportId}/ignore`;
+
+    console.log(`🩶 신고 무시 처리 API 호출: ${endpoint}`);
+
+    return await this.request<any>(
+      endpoint,
+      {
+        method: "PATCH",
+      },
+      accessToken
+    );
+  }
+
+  // 신고 게시글 삭제 - DELETE /api/admin/reports/{type}/{reportId}/delete
+  async deleteReport(
+    type: string,
+    reportId: number,
+    accessToken?: string
+  ): Promise<ApiResponse<any>> {
+    const endpoint = `/api/admin/reports/${type}/${reportId}/delete`;
+
+    console.log(`🧹 신고 게시글 삭제 API 호출: ${endpoint}`);
+
+    return await this.request<any>(
+      endpoint,
+      {
+        method: "DELETE",
+      },
+      accessToken
+    );
+  }
+
+  // 신고 상세 조회 - GET /api/admin/reports/{type}/{reportId}
+  async getReportDetail(
+    type: string,
+    reportId: number,
+    accessToken?: string
+  ): Promise<ApiResponse<any>> {
+    const endpoint = `/api/admin/reports/${type}/${reportId}`;
+
+    console.log(`🔍 신고 상세 조회 API 호출: ${endpoint}`);
+
+    return await this.request<any>(
+      endpoint,
+      {
+        method: "GET",
+      },
+      accessToken
+    );
+  }
 }
 
 // 싱글톤 인스턴스 생성

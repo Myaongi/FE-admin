@@ -13,6 +13,7 @@ interface Member {
   email: string;
   joinedAt: number[];
   status: "ACTIVATED" | "UNACTIVATED";
+  deactivatedAt?: number[]; // 비활성화 날짜 (UNACTIVATED일 때만 존재)
 }
 
 interface ActivityData {
@@ -46,6 +47,7 @@ interface MemberDetailResponse {
   email: string;
   joinedAt: number[];
   status: "ACTIVATED" | "UNACTIVATED";
+  deactivatedAt?: number[]; // 비활성화 날짜 (UNACTIVATED일 때만 존재)
   activity: ActivityData;
 }
 
@@ -105,7 +107,23 @@ export default function MembersDetailModal({
 
       if (data.isSuccess && data.result) {
         console.log("✅ 사용자 상세 데이터 설정:", data.result);
-        setMemberDetailData(data.result);
+
+        // 로컬 스토리지에서 비활성화 날짜 가져오기
+        const memberData = { ...data.result };
+        if (memberData.status === "UNACTIVATED" && memberId) {
+          const deactivatedUsers = JSON.parse(
+            localStorage.getItem("deactivatedUsers") || "{}"
+          );
+          if (deactivatedUsers[memberId]) {
+            memberData.deactivatedAt = deactivatedUsers[memberId];
+            console.log(
+              `📅 로컬 스토리지에서 비활성화 날짜 로드:`,
+              deactivatedUsers[memberId]
+            );
+          }
+        }
+
+        setMemberDetailData(memberData);
       } else {
         console.error("❌ API 응답 실패:", data);
         throw new Error(data.message || data.error || "API 응답 오류");
@@ -278,6 +296,13 @@ export default function MembersDetailModal({
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">활동 상태:</span>
                         {renderStatusBadge(memberDetailData.status)}
+                        {memberDetailData.status === "UNACTIVATED" &&
+                          memberDetailData.deactivatedAt && (
+                            <span className="text-sm text-gray-500 ml-2">
+                              (비활성화:{" "}
+                              {formatDate(memberDetailData.deactivatedAt)})
+                            </span>
+                          )}
                       </div>
                     </div>
                   </div>
