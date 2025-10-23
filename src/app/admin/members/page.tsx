@@ -124,6 +124,14 @@ export default function MembersPage() {
         return;
       }
 
+      // 토큰 형식 확인
+      console.log("🔑 토큰 길이:", accessToken.length);
+      console.log("🔑 토큰 시작:", accessToken.substring(0, 20) + "...");
+      console.log(
+        "🔑 토큰 끝:",
+        "..." + accessToken.substring(accessToken.length - 20)
+      );
+
       const params = new URLSearchParams({
         page: page.toString(),
         size: pageSize.toString(),
@@ -143,6 +151,16 @@ export default function MembersPage() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ HTTP ${response.status} 오류:`, errorText);
+
+        // 403 오류인 경우 토큰이 만료되었을 가능성이 높음
+        if (response.status === 403) {
+          console.error("🔐 403 오류: 토큰이 만료되었거나 권한이 없습니다.");
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("user");
+          router.push("/login");
+          return;
+        }
+
         throw new Error(
           `HTTP ${response.status}: ${response.statusText} - ${errorText}`
         );
@@ -159,6 +177,7 @@ export default function MembersPage() {
         setCurrentPage(result.page);
         setTotalUsers(result.totalUsers || result.totalElements);
         console.log("✅ 사용자 목록 로드 성공:", result.content.length, "명");
+        console.log("✅ 사용자 목록:", result.content);
       } else {
         console.error("❌ API 응답 실패:", data);
         throw new Error(data.message || data.error || "API 응답 오류");
@@ -197,18 +216,6 @@ export default function MembersPage() {
   // }, [pageSize]);
   // 초기 데이터 로드
   useEffect(() => {
-    // 백엔드 연결 테스트
-    async function testConnection() {
-      try {
-        const res = await fetch("/api/members");
-        const data = await res.json();
-        console.log("✅ 실제 서버 응답:", data);
-      } catch (err) {
-        console.error("❌ 서버 연결 실패:", err);
-      }
-    }
-    testConnection();
-
     fetchMembers();
   }, [pageSize]);
 

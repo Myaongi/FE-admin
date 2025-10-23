@@ -25,9 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 환경 변수로 목업 데이터 사용 여부 결정 (개발 환경에서는 기본적으로 목업 사용)
-    const useMockData =
-      process.env.NEXT_PUBLIC_USE_MOCK === "true" ||
-      process.env.NODE_ENV !== "production";
+    const useMockData = process.env.NEXT_PUBLIC_USE_MOCK === "true";
     console.log("🎭 목업 데이터 사용 여부:", useMockData);
 
     if (useMockData) {
@@ -93,6 +91,10 @@ export async function GET(request: NextRequest) {
 
         const fullUrl = `${externalApiUrl}/api/admin/members?${queryString}`;
         console.log("🌐 외부 API 직접 호출:", fullUrl);
+        console.log(
+          "🔑 전달할 토큰:",
+          authHeader ? authHeader.substring(0, 30) + "..." : "없음"
+        );
 
         const response = await fetch(fullUrl, {
           method: "GET",
@@ -113,6 +115,12 @@ export async function GET(request: NextRequest) {
         if (!response.ok) {
           const errorText = await response.text();
           console.error("❌ 외부 API 오류 응답:", errorText);
+          console.error("❌ 응답 상태:", response.status, response.statusText);
+          console.error("❌ 요청 URL:", fullUrl);
+          console.error("❌ 요청 헤더:", {
+            "Content-Type": "application/json",
+            ...(authHeader && { Authorization: authHeader }),
+          });
           throw new Error(
             `외부 서버 응답 오류: ${response.status} ${response.statusText} - ${errorText}`
           );

@@ -44,11 +44,21 @@ export default function LoginPage() {
         throw new Error("응답에 accessToken이 없습니다.");
       }
 
-      // ✅ 토큰 저장
+      // ✅ 기존 토큰 삭제
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+
+      // ✅ 새 토큰 저장
       localStorage.setItem("accessToken", accessToken);
       if (refreshToken) {
         localStorage.setItem("refreshToken", refreshToken);
       }
+
+      // ✅ 디버깅 로그
+      console.log("✅ 새 토큰 저장 완료:", {
+        accessToken: accessToken?.substring(0, 20) + "...",
+        refreshToken: refreshToken?.substring(0, 20) + "...",
+      });
 
       // ✅ 사용자 정보 저장 (선택)
       const userInfo = {
@@ -77,11 +87,21 @@ export default function LoginPage() {
       return;
     }
 
-    // ✅ 토큰 수동 저장
+    // ✅ 기존 토큰 삭제
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+
+    // ✅ 새 토큰 수동 저장
     localStorage.setItem("accessToken", manualAccess);
     if (manualRefresh) {
       localStorage.setItem("refreshToken", manualRefresh);
     }
+
+    // ✅ 디버깅 로그
+    console.log("✅ 새 토큰 수동 저장 완료:", {
+      accessToken: manualAccess?.substring(0, 20) + "...",
+      refreshToken: manualRefresh?.substring(0, 20) + "...",
+    });
 
     console.log("✅ 수동 토큰 저장 완료");
     router.push("/admin/members");

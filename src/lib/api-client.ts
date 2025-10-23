@@ -1,5 +1,5 @@
 // API 클라이언트 설정
-const API_BASE_URL = ""; // Next.js API 라우트를 통한 상대 경로
+const API_BASE_URL = "http://54.180.54.51:8080"; // ✅ 백엔드 서버로 직접 요청"; // Next.js API 라우트를 통한 상대 경로
 const MOCK_API_BASE_URL = "/api"; // 목업 데이터 (사용자 관리용)
 
 // 공통 설정
@@ -89,7 +89,17 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
 
-    console.log(`🚀 API 요청: ${options.method || "GET"} ${url}`);
+    // 🔹 요청 직전 디버깅 로그
+    console.groupCollapsed(`🚀 API 요청 디버깅: ${endpoint}`);
+    console.log("✅ 최종 요청 URL:", url);
+    console.log("📦 baseURL:", this.baseURL);
+    console.log("🧩 endpoint:", endpoint);
+    console.log("🧭 전체 요청 URL:", `${this.baseURL}${endpoint}`);
+    console.log(
+      "🔑 Authorization 헤더:",
+      accessToken ? accessToken.substring(0, 30) + "..." : "없음"
+    );
+    console.groupEnd();
 
     const defaultHeaders: Record<string, string> = {
       "Content-Type": "application/json",
@@ -116,13 +126,7 @@ class ApiClient {
       credentials: "omit",
     };
 
-    console.log(`📋 요청 옵션:`, {
-      method: config.method || "GET",
-      headers: config.headers,
-      body: config.body ? "있음" : "없음",
-      mode: config.mode,
-      credentials: config.credentials,
-    });
+    console.log(`📋 Headers:`, config.headers);
 
     try {
       // 네트워크 연결 확인 (클라이언트에서만)
@@ -143,7 +147,20 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      console.log(`📡 응답 상태: ${response.status} ${response.statusText}`);
+      // 🔹 응답 직후 디버깅 로그
+      console.groupCollapsed("📡 API 응답 디버깅");
+      console.log("🔢 상태 코드:", response.status, response.statusText);
+      console.log("🗂️ 응답 URL:", response.url);
+      try {
+        const textPreview = await response.clone().text();
+        console.log(
+          "📄 응답 미리보기 (앞부분 300자):",
+          textPreview.slice(0, 300)
+        );
+      } catch (e) {
+        console.warn("⚠️ 응답 본문 미리보기 실패:", e);
+      }
+      console.groupEnd();
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -196,15 +213,12 @@ class ApiClient {
         };
       }
     } catch (error) {
-      console.error(`API 요청 실패 (${endpoint}):`, error);
-      console.log(`📋 실패한 요청 정보:`, {
-        url: url,
-        method: config.method || "GET",
-        headers: config.headers,
-        body: config.body ? "있음" : "없음",
-        mode: config.mode,
-        credentials: config.credentials,
-      });
+      // 🔹 오류 발생 시 디버깅 로그
+      console.error("❌ API 요청 중 예외 발생:", error);
+      console.log("❌ 실패 요청 URL:", url);
+      console.log("❌ HTTP 메서드:", config.method);
+      console.log("❌ 요청 헤더:", config.headers);
+      console.log("❌ body 유무:", config.body ? "있음" : "없음");
 
       // 더 구체적인 에러 메시지 제공
       if (
@@ -305,7 +319,7 @@ class ApiClient {
 }
 
 // 싱글톤 인스턴스 생성
-export const apiClient = new ApiClient(""); // 게시물 관리용 (실서버)
+export const apiClient = new ApiClient(API_BASE_URL); // 게시물 관리용 (실서버)
 export const mockApiClient = new ApiClient(MOCK_API_BASE_URL); // 사용자 관리용 (목업)
 
 // 개발 환경에서 목업 데이터를 사용할지 실제 서버를 사용할지 결정하는 함수
