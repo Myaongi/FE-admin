@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import AdminTable from "@/components/tables/AdminTable";
 import TablePagination from "@/components/tables/TablePagination";
 import SearchFilter from "@/components/filters/SearchFilter";
@@ -29,8 +28,6 @@ interface MembersResponse {
 
 export default function MembersPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedMenu, setSelectedMenu] = useState("users");
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,67 +41,6 @@ export default function MembersPage() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(
-    null
-  );
-
-  // 사이드바 토글
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  // 메뉴 선택 핸들러
-  const handleMenuSelect = (menu: string) => {
-    if (menu === "posts") {
-      router.push("/");
-    } else if (menu === "reports") {
-      // 신고 관리 페이지 (준비 중)
-      setSelectedMenu(menu);
-    } else {
-      setSelectedMenu(menu);
-    }
-  };
-
-  // 로그아웃 핸들러
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("user");
-    router.push("/login");
-  };
-
-  // 모바일에서 사이드바 자동 닫힘
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth <= 768) {
-        setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // 로그인 상태 확인
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    const userData = localStorage.getItem("user");
-
-    if (!token || !userData) {
-      router.push("/login");
-      return;
-    }
-
-    // 사용자 정보 설정
-    try {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-    } catch (e) {
-      console.error("사용자 정보 파싱 오류:", e);
-    }
-  }, [router]);
 
   // 드롭다운 닫기 핸들러
   const handleCloseDropdown = () => {
@@ -467,114 +403,61 @@ export default function MembersPage() {
   ];
 
   return (
-    <div className="flex min-h-screen transition-all duration-300">
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onToggle={toggleSidebar}
-        selectedMenu={selectedMenu}
-        onMenuSelect={handleMenuSelect}
-      />
+    <>
+      <div className="p-6 flex-1">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
+            사용자 관리
+          </h1>
+        </div>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col bg-gray-100 transition-all duration-300 min-w-0">
-        {/* Header */}
-        <header className="bg-white/60 border-b border-black/10 px-6 py-4 h-16">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                className="w-7 h-7 border-none bg-none cursor-pointer rounded-lg flex items-center justify-center"
-                onClick={toggleSidebar}
-              >
-                <div className="w-4 h-4 bg-gray-600 relative transition-all duration-200">
-                  <div className="absolute top-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
-                  <div className="absolute bottom-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
-                </div>
-              </button>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 bg-sky-300 rounded-lg"></div>
-                <h2 className="text-lg font-semibold text-gray-900 tracking-tight leading-7">
-                  강아지킴이 관리자
-                </h2>
-              </div>
-            </div>
-
-            {/* 사용자 정보 및 로그아웃 */}
-            {user && (
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{user.name}</span>
-                  <span className="text-gray-400 ml-2">({user.email})</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
-                >
-                  로그아웃
-                </button>
-              </div>
-            )}
+        <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
+          <div className="mb-5">
+            <h3 className="text-base font-bold text-gray-900 tracking-tight leading-4">
+              전체 사용자 목록
+            </h3>
           </div>
-        </header>
 
-        {/* Page Content */}
-        <div className="p-6 flex-1">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
-              사용자 관리
-            </h1>
-          </div>
-
-          <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
-            <div className="mb-5">
-              <h3 className="text-base font-bold text-gray-900 tracking-tight leading-4">
-                전체 사용자 목록
-              </h3>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-gray-600">
-                  총 사용자 수:{" "}
-                  <span className="font-medium text-gray-900">
-                    {totalUsers}
-                  </span>
-                  명
-                </div>
-                <div className="w-80">
-                  <SearchFilter
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    onSearch={handleSearch}
-                    placeholder="사용자명 또는 이메일로 검색하세요"
-                  />
-                </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm text-gray-600">
+                총 사용자 수:{" "}
+                <span className="font-medium text-gray-900">{totalUsers}</span>
+                명
               </div>
-            </div>
-
-            <AdminTable
-              data={members}
-              columns={columns}
-              loading={loading}
-              error={error}
-              emptyMessage="사용자가 없습니다."
-            />
-
-            {totalPages > 1 && (
-              <div className="mt-6">
-                <TablePagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalElements={totalElements}
-                  pageSize={pageSize}
-                  onPageChange={handlePageChange}
-                  onSizeChange={handleSizeChange}
+              <div className="w-80">
+                <SearchFilter
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  onSearch={handleSearch}
+                  placeholder="사용자명 또는 이메일로 검색하세요"
                 />
               </div>
-            )}
+            </div>
           </div>
+
+          <AdminTable
+            data={members}
+            columns={columns}
+            loading={loading}
+            error={error}
+            emptyMessage="사용자가 없습니다."
+          />
+
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <TablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                onSizeChange={handleSizeChange}
+              />
+            </div>
+          )}
         </div>
-      </main>
+      </div>
 
       {/* 사용자 상세 모달 */}
       <MembersDetailModal
@@ -583,6 +466,6 @@ export default function MembersPage() {
         memberId={selectedMemberId}
         memberData={members.find((m) => m.id === selectedMemberId) || null}
       />
-    </div>
+    </>
   );
 }

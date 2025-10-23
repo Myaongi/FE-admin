@@ -47,30 +47,21 @@ export default function MainContent({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  // 로그인 상태 확인
+  // 사용자 정보 설정
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
     const userData = localStorage.getItem("user");
 
-    console.log("🔐 로그인 상태 확인:", { token: !!token, user: !!userData });
-
-    if (!token || !userData) {
-      console.log("❌ 로그인되지 않음, 로그인 페이지로 리다이렉트");
-      router.push("/login");
-      return;
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        console.log("✅ 로그인된 사용자:", parsedUser);
+      } catch (error) {
+        console.error("사용자 데이터 파싱 오류:", error);
+        setUser(null);
+      }
     }
-
-    try {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-      console.log("✅ 로그인된 사용자:", parsedUser);
-    } catch (error) {
-      console.error("사용자 데이터 파싱 오류:", error);
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("user");
-      router.push("/login");
-    }
-  }, [router]);
+  }, []);
 
   const handleLogout = () => {
     console.log("🚪 로그아웃");
@@ -167,9 +158,7 @@ export default function MainContent({
       const accessToken = localStorage.getItem("accessToken");
 
       if (!accessToken) {
-        console.log("❌ 토큰이 없음, 로그인 페이지로 리다이렉트");
-        router.push("/login");
-        return;
+        throw new Error("인증 토큰이 없습니다.");
       }
 
       console.log(
@@ -278,20 +267,9 @@ export default function MainContent({
           </div>
         );
       case "reports":
-        return (
-          <div className="p-6 flex-1">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
-                신고 내역 관리
-              </h1>
-            </div>
-            <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
-              <div className="text-center py-12 text-gray-500">
-                신고 내역 관리 기능은 준비 중입니다.
-              </div>
-            </div>
-          </div>
-        );
+        // 신고 내역 페이지로 라우팅
+        router.push("/admin/reports");
+        return null;
       default:
         return (
           <div className="p-6 flex-1">

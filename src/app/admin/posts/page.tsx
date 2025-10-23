@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AdminLayout from "@/components/layout/AdminLayout";
 import AdminTable from "@/components/tables/AdminTable";
 import TablePagination from "@/components/tables/TablePagination";
 import SearchFilter from "@/components/filters/SearchFilter";
@@ -45,17 +44,6 @@ export default function PostsPage() {
     "LOST" | "FOUND" | null
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // 로그인 상태 확인
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    const userData = localStorage.getItem("user");
-
-    if (!token || !userData) {
-      router.push("/login");
-      return;
-    }
-  }, [router]);
 
   // 게시물 목록 조회
   const fetchPosts = async (query: string = "", page: number = 0) => {
@@ -207,49 +195,59 @@ export default function PostsPage() {
   ];
 
   return (
-    <div className="p-6 flex-1">
-      <AdminLayout title="게시물 관리">
+    <>
+      <div className="p-6 flex-1">
         <div className="mb-6">
-          <SearchFilter
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSearch={handleSearch}
-            placeholder="제목 또는 작성자로 검색하세요"
-          />
+          <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
+            게시물 관리
+          </h1>
         </div>
 
-        <AdminTable
-          data={posts}
-          columns={columns}
-          loading={loading}
-          error={error}
-          emptyMessage="게시물이 없습니다."
-          onRowClick={(item) => {
-            setSelectedPostId(item.postId);
-            setSelectedPostType(item.type); // ✅ 게시물 타입 저장 추가
-            setIsModalOpen(true);
-          }}
-        />
-
-        {totalPages > 1 && (
-          <div className="mt-6">
-            <TablePagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalElements={totalElements}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-              onSizeChange={handleSizeChange}
+        <div className="bg-white border border-black/10 rounded-2xl p-6 shadow-sm">
+          <div className="mb-6">
+            <SearchFilter
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSearch={handleSearch}
+              placeholder="제목 또는 작성자로 검색하세요"
             />
           </div>
-        )}
-      </AdminLayout>
+
+          <AdminTable
+            data={posts}
+            columns={columns}
+            loading={loading}
+            error={error}
+            emptyMessage="게시물이 없습니다."
+            onRowClick={(item) => {
+              setSelectedPostId(item.postId);
+              setSelectedPostType(item.type);
+              setIsModalOpen(true);
+            }}
+          />
+
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <TablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                onSizeChange={handleSizeChange}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 상세보기 모달 */}
       <PostDetailModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
         postId={selectedPostId}
         postType={selectedPostType}
       />
-    </div>
+    </>
   );
 }
