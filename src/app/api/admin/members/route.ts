@@ -24,8 +24,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 환경 변수로 목업 데이터 사용 여부 결정
-    const useMockData = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+    // 환경 변수로 목업 데이터 사용 여부 결정 (개발 환경에서는 기본적으로 목업 사용)
+    const useMockData =
+      process.env.NEXT_PUBLIC_USE_MOCK === "true" ||
+      process.env.NODE_ENV !== "production";
     console.log("🎭 목업 데이터 사용 여부:", useMockData);
 
     if (useMockData) {
@@ -81,29 +83,65 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response);
     } else {
       try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001";
-        const apiUrl = `${baseUrl}/api/proxy/members?page=${page}&size=${size}&query=${query}`;
+        // 직접 외부 API 호출
+        const externalApiUrl = "http://54.180.54.51:8080";
+        const queryString = new URLSearchParams({
+          page: page.toString(),
+          size: size.toString(),
+          ...(query && { query }),
+        }).toString();
 
-        const response = await fetch(apiUrl, {
+        const fullUrl = `${externalApiUrl}/api/admin/members?${queryString}`;
+        console.log("🌐 외부 API 직접 호출:", fullUrl);
+
+        const response = await fetch(fullUrl, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             ...(authHeader && { Authorization: authHeader }),
           },
+          // 타임아웃 설정
+          signal: AbortSignal.timeout(10000), // 10초 타임아웃
         });
 
+        console.log(
+          "📡 외부 API 응답 상태:",
+          response.status,
+          response.statusText
+        );
+
         if (!response.ok) {
-          throw new Error(`서버 응답 오류: ${response.status}`);
+          const errorText = await response.text();
+          console.error("❌ 외부 API 오류 응답:", errorText);
+          throw new Error(
+            `외부 서버 응답 오류: ${response.status} ${response.statusText} - ${errorText}`
+          );
         }
 
         const data = await response.json();
-        console.log("✅ 실제 서버 응답:", data);
+        console.log("✅ 외부 서버 응답 성공:", data);
         return NextResponse.json(data);
       } catch (err) {
-        console.error("❌ 서버 요청 실패:", err);
+        console.error("❌ 외부 서버 요청 실패:", err);
+
+        // 구체적인 오류 메시지 제공
+        let errorMessage = "서버 요청에 실패했습니다.";
+        if (err instanceof Error) {
+          if (err.name === "AbortError") {
+            errorMessage = "서버 응답 시간이 초과되었습니다.";
+          } else if (err.message.includes("fetch failed")) {
+            errorMessage =
+              "서버에 연결할 수 없습니다. 네트워크를 확인해주세요.";
+          } else {
+            errorMessage = err.message;
+          }
+        }
+
         return NextResponse.json(
-          { error: "서버 요청에 실패했습니다." },
+          {
+            error: errorMessage,
+            details: err instanceof Error ? err.message : String(err),
+          },
           { status: 500 }
         );
       }

@@ -1,5 +1,5 @@
 // API 클라이언트 설정
-const API_BASE_URL = "http://54.180.54.51:8080"; // 실서버 (게시물 관리용)
+const API_BASE_URL = ""; // Next.js API 라우트를 통한 상대 경로
 const MOCK_API_BASE_URL = "/api"; // 목업 데이터 (사용자 관리용)
 
 // 공통 설정
@@ -252,113 +252,60 @@ class ApiClient {
       searchParams.append("size", params.size.toString());
 
     const queryString = searchParams.toString();
+    const endpoint = `/api/admin/posts${queryString ? `?${queryString}` : ""}`;
 
-    // 프록시 엔드포인트 사용
-    const possibleEndpoints = [
-      `/api/proxy/posts${queryString ? `?${queryString}` : ""}`,
-      `/api/admin/posts${queryString ? `?${queryString}` : ""}`,
-      `/api/posts${queryString ? `?${queryString}` : ""}`,
-      `/posts${queryString ? `?${queryString}` : ""}`,
-      `/admin/posts${queryString ? `?${queryString}` : ""}`,
-    ];
+    console.log(`🔍 게시글 목록 조회: ${endpoint}`);
 
-    let lastError;
-
-    for (const endpoint of possibleEndpoints) {
-      try {
-        console.log(`🔍 엔드포인트 시도: ${endpoint}`);
-
-        const response = await this.request<PostsResponse>(
-          endpoint,
-          {
-            method: "GET",
-          },
-          accessToken
-        );
-
-        console.log(`✅ 성공한 엔드포인트: ${endpoint}`);
-        return response;
-      } catch (error) {
-        console.log(`❌ 엔드포인트 실패: ${endpoint}`);
-
-        console.log(`📋 실패한 요청 헤더:`, {
-          url: `${this.baseURL}${endpoint}`,
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken && {
-              Authorization: `Bearer ${accessToken.substring(0, 20)}...`,
-            }),
-          },
-        });
-        console.log(`🔍 에러 상세:`, error);
-        lastError = error;
-        continue;
-      }
-    }
-
-    throw lastError || new Error("모든 엔드포인트 시도 실패");
+    return await this.request<PostsResponse>(
+      endpoint,
+      {
+        method: "GET",
+      },
+      accessToken
+    );
   }
 
-  // 게시글 상세 조회 - GET /api/proxy/posts/{postId}?type={type}
+  // 게시글 상세 조회 - GET /api/admin/posts/{postId}?type={type}
   async getPostDetail(
     postId: number,
     type: "LOST" | "FOUND",
     accessToken?: string
   ): Promise<ApiResponse<PostDetail>> {
-    const endpoint = `/api/proxy/posts/${postId}?type=${type}`;
+    const endpoint = `/api/admin/posts/${postId}?type=${type}`;
 
-    try {
-      console.log(`🔍 상세 조회 엔드포인트: ${endpoint}`);
+    console.log(`🔍 게시글 상세 조회: ${endpoint}`);
 
-      const response = await this.request<PostDetail>(
-        endpoint,
-        {
-          method: "GET",
-        },
-        accessToken
-      );
-
-      console.log(`✅ 상세 조회 성공: ${endpoint}`);
-      return response;
-    } catch (error) {
-      console.log(`❌ 상세 조회 실패: ${endpoint}`);
-      console.log(`🔍 에러 상세:`, error);
-      throw error;
-    }
+    return await this.request<PostDetail>(
+      endpoint,
+      {
+        method: "GET",
+      },
+      accessToken
+    );
   }
 
-  // 게시글 삭제 - DELETE /api/proxy/posts/{postId}/delete?type={type}
+  // 게시글 삭제 - DELETE /api/admin/posts/{postId}/delete?type={type}
   async deletePost(
     postId: number,
     type: "LOST" | "FOUND",
     accessToken?: string
   ): Promise<ApiResponse<DeleteResponse>> {
-    const endpoint = `/api/proxy/posts/${postId}/delete?type=${type}`;
+    const endpoint = `/api/admin/posts/${postId}/delete?type=${type}`;
 
-    try {
-      console.log(`🔍 삭제 엔드포인트: ${endpoint}`);
+    console.log(`🔍 게시글 삭제: ${endpoint}`);
 
-      const response = await this.request<DeleteResponse>(
-        endpoint,
-        {
-          method: "DELETE",
-        },
-        accessToken
-      );
-
-      console.log(`✅ 삭제 성공: ${endpoint}`);
-      return response;
-    } catch (error) {
-      console.log(`❌ 삭제 실패: ${endpoint}`);
-      console.log(`🔍 에러 상세:`, error);
-      throw error;
-    }
+    return await this.request<DeleteResponse>(
+      endpoint,
+      {
+        method: "DELETE",
+      },
+      accessToken
+    );
   }
 }
 
 // 싱글톤 인스턴스 생성
-export const apiClient = new ApiClient(API_BASE_URL); // 게시물 관리용 (실서버)
+export const apiClient = new ApiClient(""); // 게시물 관리용 (실서버)
 export const mockApiClient = new ApiClient(MOCK_API_BASE_URL); // 사용자 관리용 (목업)
 
 // 개발 환경에서 목업 데이터를 사용할지 실제 서버를 사용할지 결정하는 함수

@@ -178,7 +178,7 @@ export default function MainContent({
       );
       console.log(`📊 필터: ${filter}, AI만: ${aiOnly}`);
 
-      const response = await axios.get("/api/proxy/posts", {
+      const response = await axios.get("/api/posts", {
         params: {
           type: filter,
           aiOnly: aiOnly,

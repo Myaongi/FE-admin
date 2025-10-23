@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("delicia.zure@gmail.com");
+  const [password, setPassword] = useState("ghksl-091016");
 
   const [manualAccess, setManualAccess] = useState("");
   const [manualRefresh, setManualRefresh] = useState("");
@@ -22,7 +22,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/proxy/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -6,6 +6,7 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import AdminTable from "@/components/tables/AdminTable";
 import TablePagination from "@/components/tables/TablePagination";
 import SearchFilter from "@/components/filters/SearchFilter";
+import PostDetailModal from "@/components/PostDetailModal";
 
 interface Post {
   postId: number;
@@ -39,6 +40,11 @@ export default function PostsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [selectedPostType, setSelectedPostType] = useState<
+    "LOST" | "FOUND" | null
+  >(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 로그인 상태 확인
   useEffect(() => {
@@ -72,7 +78,7 @@ export default function PostsPage() {
         params.append("query", query.trim());
       }
 
-      const response = await fetch(`/api/proxy/posts?${params}`, {
+      const response = await fetch(`/api/posts?${params}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
@@ -101,6 +107,12 @@ export default function PostsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedPostId(null);
+    setSelectedPostType(null);
   };
 
   // 초기 데이터 로드
@@ -212,6 +224,11 @@ export default function PostsPage() {
           loading={loading}
           error={error}
           emptyMessage="게시물이 없습니다."
+          onRowClick={(item) => {
+            setSelectedPostId(item.postId);
+            setSelectedPostType(item.type); // ✅ 게시물 타입 저장 추가
+            setIsModalOpen(true);
+          }}
         />
 
         {totalPages > 1 && (
@@ -227,6 +244,12 @@ export default function PostsPage() {
           </div>
         )}
       </AdminLayout>
+      <PostDetailModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        postId={selectedPostId}
+        postType={selectedPostType}
+      />
     </div>
   );
 }

@@ -71,7 +71,7 @@ export default function ReportsPage() {
         params.append("query", query.trim());
       }
 
-      const response = await fetch(`/api/proxy/reports?${params}`, {
+      const response = await fetch(`/api/reports?${params}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",

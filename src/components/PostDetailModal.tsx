@@ -51,6 +51,7 @@ export default function PostDetailModal({
 
       const response = await apiClient.getPostDetail(id, type, accessToken);
 
+      console.log("📦 전달된 type:", type);
       console.log("API 응답 받음:", response);
 
       if (response.isSuccess && response.result) {
@@ -110,6 +111,14 @@ export default function PostDetailModal({
       fetchPostDetail(postId, postType);
     }
   }, [isOpen, postId, postType]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPostDetail(null);
+      setError(null);
+      setActiveTab("post");
+    }
+  }, [isOpen]);
 
   // 삭제 핸들러
   const handleDelete = async () => {
