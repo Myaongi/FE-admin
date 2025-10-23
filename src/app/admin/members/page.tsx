@@ -457,7 +457,7 @@ export default function MembersPage() {
 
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-black">
                 총 사용자 수:{" "}
                 <span className="font-medium text-gray-900">{totalUsers}</span>
                 명
