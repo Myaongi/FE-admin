@@ -3,11 +3,12 @@ import { getApiClient } from "@/lib/api-client";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { type: string; id: string } }
+  context: { params: Promise<{ type: string; id: string }> }
 ) {
   try {
-    const postId = parseInt(params.id);
-    const postType = params.type as "LOST" | "FOUND";
+    const { type, id } = await context.params;
+    const postId = parseInt(id);
+    const postType = type as "LOST" | "FOUND";
 
     // Authorization 헤더 확인 (개발 환경에서는 생략 가능)
     const authHeader = request.headers.get("authorization");

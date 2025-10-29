@@ -14,10 +14,11 @@ export async function OPTIONS() {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const memberId = params.id;
+    const { id } = await context.params;
+    const memberId = id;
     const body = await request.json();
     const { status } = body;
     const token = request.headers.get("authorization");

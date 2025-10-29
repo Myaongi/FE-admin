@@ -15,10 +15,10 @@ export async function OPTIONS() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { type: string; reportId: string } }
+  context: { params: Promise<{ type: string; reportId: string }> }
 ) {
   try {
-    const { type, reportId } = params;
+    const { type, reportId } = await context.params;
 
     console.log("🔍 신고 상세 조회 API 호출:", type, reportId);
 

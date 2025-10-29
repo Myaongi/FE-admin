@@ -15,10 +15,10 @@ export async function OPTIONS() {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { type: string; reportId: string } }
+  context: { params: Promise<{ type: string; reportId: string }> }
 ) {
   try {
-    const { type, reportId } = params;
+    const { type, reportId } = await context.params;
 
     console.log("🧹 신고 게시글 삭제 API 호출:", type, reportId);
 
