@@ -1,5 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import logo from "@/assets/logo.svg";
+
 interface AdminHeaderProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -18,20 +21,39 @@ export default function AdminHeader({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            className="w-7 h-7 border-none bg-none cursor-pointer rounded-lg flex items-center justify-center"
             onClick={onToggleSidebar}
+            className="text-gray-400 hover:text-gray-700 transition-colors"
           >
-            <div className="w-4 h-4 bg-gray-600 relative transition-all duration-200">
-              <div className="absolute top-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
-              <div className="absolute bottom-1 left-0 w-full h-0.5 bg-white transition-all duration-200"></div>
-            </div>
+            <svg
+              width="25"
+              height="25"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6"
+            >
+              <path
+                d="M12.6667 2H3.33333C2.59695 2 2 2.59695 2 3.33333V12.6667C2 13.403 2.59695 14 3.33333 14H12.6667C13.403 14 14 13.403 14 12.6667V3.33333C14 2.59695 13.403 2 12.6667 2Z"
+                stroke="currentColor"
+                strokeWidth="1.33333"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M6 2V14"
+                stroke="currentColor"
+                strokeWidth="1.33333"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-sky-300 rounded-lg"></div>
-            <h2 className="text-lg font-semibold text-gray-900 tracking-tight leading-7">
-              강아지킴이 관리자
-            </h2>
-          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <Image src={logo} alt="강아지킴이 로고" width={120} height={120} />
+          </button>
         </div>
 
         {/* 사용자 정보 및 로그아웃 */}

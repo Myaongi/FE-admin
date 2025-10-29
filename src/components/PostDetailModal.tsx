@@ -131,7 +131,7 @@ export default function PostDetailModal({
 
   // 모달이 열릴 때 게시글 상세 정보 가져오기
   useEffect(() => {
-    if (isOpen && postId !== null && postType) {
+    if (isOpen && postId && postType) {
       fetchPostDetail(postId, postType);
     }
   }, [isOpen, postId, postType]);

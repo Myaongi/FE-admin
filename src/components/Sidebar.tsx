@@ -1,5 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import logo from "@/assets/logo.svg";
+
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -31,14 +34,18 @@ export default function Sidebar({
       >
         {isOpen && (
           <div className="w-60 transition-opacity duration-300">
-            <div className="p-4 border-b border-gray-200 h-24">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-sky-300 rounded-lg flex items-center justify-center"></div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-7">
-                    강아지킴이
-                  </h1>
-                  <p className="text-sm font-medium text-gray-500 tracking-tight leading-5">
+            <div className="p-4 border-b border-gray-200 h-20">
+              <div className="flex items-center gap-2">
+                <div className="mb-2">
+                  <div className="flex justify-center mb-3">
+                    <Image
+                      src={logo}
+                      alt="강아지킴이 로고"
+                      width={120}
+                      height={120}
+                    />
+                  </div>
+                  <p className="text-sm font-medium text-gray-500 tracking-tight leading-3">
                     Admin Dashboard
                   </p>
                 </div>

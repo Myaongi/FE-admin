@@ -1,4 +1,5 @@
 "use client";
+import ReportStatusBadge from "@/components/badge/ReportStatusBadge";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -160,7 +161,21 @@ export default function ReportsPage() {
 
       if (response.ok && data.isSuccess) {
         alert("✅ 신고 무효처리가 완료되었습니다.");
-        fetchReports(currentPage); // 목록 재조회
+        const now = new Date();
+        const formattedDate = `${now.getFullYear()}.${(now.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}.${now.getDate().toString().padStart(2, "0")}`;
+        setReports((prev) =>
+          prev.map((r) =>
+            r.reportId === reportId
+              ? ({
+                  ...(r as any),
+                  status: `${formattedDate} 무시됨`,
+                  _isActionDone: true,
+                } as Report)
+              : r
+          )
+        );
       } else {
         alert("❌ 신고 무효처리에 실패했습니다: " + (data.message || "오류"));
       }
@@ -199,7 +214,21 @@ export default function ReportsPage() {
 
       if (response.ok && data.isSuccess) {
         alert("🗑️ 신고된 게시글이 성공적으로 삭제되었습니다.");
-        fetchReports(currentPage); // 목록 재조회
+        const now = new Date();
+        const formattedDate = `${now.getFullYear()}.${(now.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}.${now.getDate().toString().padStart(2, "0")}`;
+        setReports((prev) =>
+          prev.map((r) =>
+            r.reportId === reportId
+              ? ({
+                  ...(r as any),
+                  status: `${formattedDate} 삭제됨`,
+                  _isActionDone: true,
+                } as Report)
+              : r
+          )
+        );
       } else {
         alert("❌ 삭제에 실패했습니다: " + (data.message || "오류 발생"));
       }
@@ -219,34 +248,17 @@ export default function ReportsPage() {
   };
 
   // 상태 배지 렌더링
-  const renderStatusBadge = (status: string) => {
-    const statusMap = {
-      "대기 중": {
-        text: "대기 중",
-        className: "bg-red-100 text-red-700 border border-red-300",
-      },
-      처리완료: {
-        text: "처리완료",
-        className: "bg-green-100 text-green-700 border border-green-300",
-      },
-    };
-
-    const statusInfo = statusMap[status as keyof typeof statusMap] || {
-      text: status,
-      className: "bg-gray-100 text-gray-600 border border-gray-300",
-    };
-
-    return (
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-center tracking-normal leading-4 ${statusInfo.className}`}
-      >
-        {statusInfo.text}
-      </span>
-    );
+  const renderReportStatusBadge = (status: string) => {
+    return <ReportStatusBadge status={status} />;
   };
 
   // 관리자 작업 버튼 렌더링
   const renderAdminActions = (report: Report) => {
+    if ((report as any)._isActionDone) {
+      return (
+        <div className="text-sm text-gray-500 font-medium">{report.status}</div>
+      );
+    }
     return (
       <div className="flex gap-2">
         <button
@@ -300,7 +312,7 @@ export default function ReportsPage() {
     {
       key: "status",
       label: "신고 상태",
-      render: (value: string) => renderStatusBadge(value),
+      render: (value: string) => <ReportStatusBadge status={value} />,
     },
     {
       key: "reportDetail",

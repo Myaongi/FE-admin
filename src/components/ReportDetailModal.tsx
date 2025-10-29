@@ -1,5 +1,6 @@
 "use client";
 
+import ReportStatusBadge from "@/components/badge/ReportStatusBadge";
 import { useState, useEffect } from "react";
 import { getImageUrl } from "@/lib/url-utils";
 
@@ -198,22 +199,15 @@ export default function ReportDetailModal({
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   신고 내역 상세
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-3">
+                <div className="space-y-4 text-sm">
+                  {/* 첫 번째 행: 신고자 | 게시물 ID */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
                         신고자:
                       </span>
                       <span className="text-gray-900">
                         {reportDetail.reporterName}
-                      </span>
-                    </div>
-                    <div className="flex">
-                      <span className="w-24 font-medium text-gray-600">
-                        신고일:
-                      </span>
-                      <span className="text-gray-900">
-                        {formatDateTime(reportDetail.reportedAt)}
                       </span>
                     </div>
                     <div className="flex">
@@ -225,7 +219,27 @@ export default function ReportDetailModal({
                       </span>
                     </div>
                   </div>
-                  <div className="space-y-3">
+
+                  {/* 두 번째 행: 신고일 | 처리 상태 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex">
+                      <span className="w-24 font-medium text-gray-600">
+                        신고일:
+                      </span>
+                      <span className="text-gray-900">
+                        {formatDateTime(reportDetail.reportedAt)}
+                      </span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-24 font-medium text-gray-600">
+                        처리 상태:
+                      </span>
+                      <ReportStatusBadge status={reportDetail.status} />
+                    </div>
+                  </div>
+
+                  {/* 세 번째 행: 신고 사유 */}
+                  <div>
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
                         신고 사유:
@@ -234,21 +248,17 @@ export default function ReportDetailModal({
                         {reportDetail.reason}
                       </span>
                     </div>
-                    <div className="flex">
-                      <span className="w-24 font-medium text-gray-600">
+                  </div>
+
+                  {/* 네 번째 행: 상세 사유 (박스 처리) */}
+                  <div>
+                    <div className="flex items-start">
+                      <span className="w-24 font-medium text-gray-600 pt-1">
                         상세 사유:
                       </span>
-                      <span className="text-gray-900">
+                      <div className="flex-1 bg-gray-100 rounded-lg p-3 text-gray-700">
                         {reportDetail.detailReason || "-"}
-                      </span>
-                    </div>
-                    <div className="flex">
-                      <span className="w-24 font-medium text-gray-600">
-                        처리 상태:
-                      </span>
-                      <span className="text-gray-900">
-                        {reportDetail.status}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 </div>
