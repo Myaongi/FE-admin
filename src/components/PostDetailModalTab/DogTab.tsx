@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { getImageUrl } from "@/lib/url-utils";
 
 interface PostDetail {
   postId: number;
@@ -139,7 +140,9 @@ export default function DogTab({ postDetail, getGenderText }: DogTabProps) {
                     !postDetail.thumbnailUrl; // thumbnailUrl이 없고 AI 이미지가 있으면 첫 번째만 뱃지
                   return (
                     <button
-                      key={src + idx}
+                      key={`dog-image-${postDetail.postId}-${idx}-${src?.slice(
+                        -10
+                      )}`}
                       type="button"
                       className="group relative w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm"
                       onClick={() => setSelectedImageIndex(globalIndex)}
@@ -147,7 +150,7 @@ export default function DogTab({ postDetail, getGenderText }: DogTabProps) {
                       {/* 1:1 비율 컨테이너 */}
                       <div className="relative w-full pb-[100%]">
                         <img
-                          src={src}
+                          src={getImageUrl(src) || "/placeholder.svg"}
                           alt={`강아지 사진 ${globalIndex + 1}`}
                           className="absolute inset-0 w-full h-full object-cover"
                         />
@@ -196,9 +199,11 @@ export default function DogTab({ postDetail, getGenderText }: DogTabProps) {
                     <div className="relative w-full pb-[56.25%] bg-black/20 rounded-lg overflow-hidden">
                       <img
                         src={
-                          allImages.slice(0, Math.min(10, total))[
-                            selectedImageIndex
-                          ]
+                          getImageUrl(
+                            allImages.slice(0, Math.min(10, total))[
+                              selectedImageIndex
+                            ]
+                          ) || "/placeholder.svg"
                         }
                         alt={`확대 이미지 ${selectedImageIndex + 1}`}
                         className="absolute inset-0 w-full h-full object-contain bg-black"

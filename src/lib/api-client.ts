@@ -1,3 +1,5 @@
+import { combineUrl } from "./url-utils";
+
 // API 클라이언트 설정
 const API_BASE_URL = "http://54.180.54.51:8080"; // ✅ 백엔드 서버로 직접 요청"; // Next.js API 라우트를 통한 상대 경로
 const MOCK_API_BASE_URL = "/api"; // 목업 데이터 (사용자 관리용)
@@ -88,14 +90,18 @@ class ApiClient {
     options: RequestInit = {},
     accessToken?: string
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseURL}${endpoint}`;
+    // ✅ 절대경로면 baseURL 붙이지 않음, 상대경로면 baseURL과 결합
+    let fullUrl = endpoint.startsWith("http")
+      ? endpoint
+      : combineUrl(this.baseURL, endpoint);
 
     // 🔹 요청 직전 디버깅 로그
     console.groupCollapsed(`🚀 API 요청 디버깅: ${endpoint}`);
-    console.log("✅ 최종 요청 URL:", url);
+    console.log("✅ 최종 요청 URL:", fullUrl);
     console.log("📦 baseURL:", this.baseURL);
     console.log("🧩 endpoint:", endpoint);
-    console.log("🧭 전체 요청 URL:", `${this.baseURL}${endpoint}`);
+    console.log("🔍 절대경로 여부:", endpoint.startsWith("http"));
+    console.log("🔧 슬래시 정리 후 URL:", fullUrl);
     console.log(
       "🔑 Authorization 헤더:",
       accessToken ? accessToken.substring(0, 30) + "..." : "없음"
@@ -141,7 +147,7 @@ class ApiClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      const response = await fetch(url, {
+      const response = await fetch(fullUrl, {
         ...config,
         signal: controller.signal,
       });
@@ -216,7 +222,7 @@ class ApiClient {
     } catch (error) {
       // 🔹 오류 발생 시 디버깅 로그
       console.error("❌ API 요청 중 예외 발생:", error);
-      console.log("❌ 실패 요청 URL:", url);
+      console.log("❌ 실패 요청 URL:", fullUrl);
       console.log("❌ HTTP 메서드:", config.method);
       console.log("❌ 요청 헤더:", config.headers);
       console.log("❌ body 유무:", config.body ? "있음" : "없음");

@@ -223,7 +223,7 @@ export default function ReportsPage() {
     const statusMap = {
       "대기 중": {
         text: "대기 중",
-        className: "bg-orange-100 text-orange-700 border border-orange-300",
+        className: "bg-red-100 text-red-700 border border-red-300",
       },
       처리완료: {
         text: "처리완료",
@@ -276,15 +276,18 @@ export default function ReportsPage() {
       label: "대상 글 제목",
       render: (value: string, report: Report) => (
         <button
-          onClick={() =>
-            handlePostDetailClick(report.targetPostId || 0, report.type)
-          }
+          onClick={() => {
+            console.log("🟣 report 객체 전체:", report);
+            console.log("🟡 클릭됨:", report.targetPostId, report.type);
+            handlePostDetailClick(report.targetPostId || 0, report.type);
+          }}
           className="text-blue-600 hover:text-blue-800 hover:underline text-left"
         >
           {value}
         </button>
       ),
     },
+
     {
       key: "reporterName",
       label: "신고자",

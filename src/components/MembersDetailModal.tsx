@@ -6,6 +6,7 @@ import { mockMemberDetail } from "@/lib/mock/membersDetail";
 import PostDetailModal from "./PostDetailModal";
 import Image from "next/image";
 import ActivityBadge from "@/components/badge/ActivityBadge";
+import { getImageUrl } from "@/lib/url-utils";
 
 interface Member {
   id: number;
@@ -356,7 +357,10 @@ export default function MembersDetailModal({
                                 <div className="flex-shrink-0 w-20 h-20 bg-gray-200 rounded-lg overflow-hidden relative">
                                   {post.thumbnailUrl ? (
                                     <Image
-                                      src={`${process.env.NEXT_PUBLIC_API_URL}/${post.thumbnailUrl}`}
+                                      src={
+                                        getImageUrl(post.thumbnailUrl) ||
+                                        "/placeholder.svg"
+                                      }
                                       alt={post.title}
                                       fill
                                       className="object-cover"

@@ -1,5 +1,8 @@
 "use client";
 
+import { getImageUrl } from "@/lib/url-utils";
+import StatusBadge from "@/components/badge/StatusBadge";
+
 interface Post {
   postId: number;
   type: "LOST" | "FOUND";
@@ -32,11 +35,15 @@ export default function PostsTable({
 }: PostsTableProps) {
   // 대표사진 가져오기
   const getThumbnail = (post: Post) => {
-    if (post.thumbnailUrl) return post.thumbnailUrl;
-    if (post.aiImage) return post.aiImage;
-    if (Array.isArray(post.realImages) && post.realImages.length > 0)
-      return post.realImages[0];
-    return "/placeholder.svg";
+    if (post.thumbnailUrl) {
+      return getImageUrl(post.thumbnailUrl) || "/placeholder.svg";
+    } else if (post.aiImage) {
+      return getImageUrl(post.aiImage) || "/placeholder.svg";
+    } else if (Array.isArray(post.realImages) && post.realImages.length > 0) {
+      return getImageUrl(post.realImages[0]) || "/placeholder.svg";
+    } else {
+      return "/placeholder.svg";
+    }
   };
 
   // 삭제 날짜 포맷팅
@@ -46,37 +53,6 @@ export default function PostsTable({
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const day = date.getDate().toString().padStart(2, "0");
     return `${year}.${month}.${day} 관리자 삭제`;
-  };
-
-  // 상태 배지 렌더링
-  const renderStatusBadge = (status: string) => {
-    const statusMap = {
-      실종: {
-        text: "실종",
-        className: "bg-pink-100 text-gray-600 border border-pink-300",
-      },
-      발견: {
-        text: "발견",
-        className: "bg-yellow-100 text-gray-600 border border-yellow-400",
-      },
-      "귀가 완료": {
-        text: "귀가 완료",
-        className: "bg-blue-100 text-gray-600 border border-blue-300",
-      },
-    };
-
-    const statusInfo = statusMap[status as keyof typeof statusMap] || {
-      text: status,
-      className: "bg-pink-100 text-gray-600 border border-pink-300",
-    };
-
-    return (
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-center tracking-normal leading-4 ${statusInfo.className}`}
-      >
-        {statusInfo.text}
-      </span>
-    );
   };
 
   return (
@@ -133,7 +109,7 @@ export default function PostsTable({
             posts.map((post) => (
               <tr key={post.postId} className="hover:bg-gray-50">
                 <td className="px-2 lg:px-4 py-2 border-b border-gray-100 align-middle whitespace-nowrap">
-                  {renderStatusBadge(post.status)}
+                  <StatusBadge status={post.status} />
                 </td>
                 <td className="px-2 lg:px-4 py-2 border-b border-gray-100 align-middle whitespace-nowrap">
                   <div className="relative w-11 h-11 bg-gray-100 rounded-lg overflow-hidden">

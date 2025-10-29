@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getImageUrl } from "@/lib/url-utils";
 
 interface ReportDetail {
   reportId: number;
@@ -35,6 +36,12 @@ export default function ReportDetailModal({
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 이미지 보기 상태 관리
+  const [showAllImages, setShowAllImages] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
+    null
+  );
 
   // 날짜 포맷팅 (YYYY-MM-DD HH:mm)
   const formatDateTime = (dateArray: number[]) => {
@@ -104,8 +111,38 @@ export default function ReportDetailModal({
     } else {
       setReportDetail(null);
       setError(null);
+      setShowAllImages(false);
+      setSelectedImageIndex(null);
     }
   }, [isOpen, reportId, reportType]);
+
+  // 키보드 이벤트 핸들러 (ESC, 좌우 화살표)
+  useEffect(() => {
+    if (selectedImageIndex === null) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!reportDetail) return;
+      const allImages = reportDetail.imagePreview
+        ? [reportDetail.imagePreview]
+        : reportDetail.realImages || [];
+      const total = allImages.length;
+
+      if (e.key === "Escape") {
+        setSelectedImageIndex(null);
+      } else if (e.key === "ArrowRight") {
+        setSelectedImageIndex((prev) =>
+          prev === null ? 0 : (prev + 1) % total
+        );
+      } else if (e.key === "ArrowLeft") {
+        setSelectedImageIndex((prev) =>
+          prev === null ? 0 : (prev - 1 + total) % total
+        );
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedImageIndex, reportDetail]);
 
   if (!isOpen) return null;
 
@@ -224,7 +261,7 @@ export default function ReportDetailModal({
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     신고된 게시글 정보
                   </h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-4 text-sm">
                     <div className="space-y-3">
                       <div className="flex">
                         <span className="w-24 font-medium text-gray-600">
@@ -261,41 +298,148 @@ export default function ReportDetailModal({
                         {reportDetail.imagePreview ||
                         (reportDetail.realImages &&
                           reportDetail.realImages.length > 0) ? (
-                          <div className="flex flex-wrap gap-2">
+                          <>
                             {(() => {
-                              const allImages = [
-                                ...(reportDetail.imagePreview
-                                  ? [reportDetail.imagePreview]
-                                  : []),
-                                ...(reportDetail.realImages || []),
-                              ].filter(Boolean);
+                              const allImages = reportDetail.imagePreview
+                                ? [reportDetail.imagePreview]
+                                : reportDetail.realImages || [];
+                              const total = allImages.length;
+                              const imagesToRender = showAllImages
+                                ? allImages.slice(0, 10)
+                                : allImages.slice(0, 3);
 
-                              return allImages.slice(0, 3).map((src, idx) => {
-                                const isAiImage =
-                                  idx === 0 && reportDetail.imagePreview;
-
-                                return (
-                                  <div
-                                    key={src + idx}
-                                    className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200"
-                                  >
-                                    <img
-                                      src={src}
-                                      alt={`강아지 사진 ${idx + 1}`}
-                                      className="w-full h-full object-cover"
-                                    />
-
-                                    {/* AI 생성 뱃지 */}
-                                    {isAiImage && (
-                                      <div className="absolute top-1 right-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold px-1 py-0.5 rounded-full shadow-md">
-                                        AI
-                                      </div>
-                                    )}
+                              return (
+                                <>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    {imagesToRender.map((src, idx) => {
+                                      const isRepresentative = idx === 0;
+                                      const isAiImage =
+                                        reportDetail.imagePreview && idx === 0;
+                                      return (
+                                        <button
+                                          key={`report-image-${idx}-${src?.slice(
+                                            -10
+                                          )}`}
+                                          type="button"
+                                          className="group relative w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm"
+                                          onClick={() =>
+                                            setSelectedImageIndex(idx)
+                                          }
+                                        >
+                                          <div className="relative w-full pb-[100%]">
+                                            <img
+                                              src={
+                                                getImageUrl(src) ||
+                                                "/placeholder.svg"
+                                              }
+                                              alt={`강아지 사진 ${idx + 1}`}
+                                              className="absolute inset-0 w-full h-full object-cover"
+                                            />
+                                            {isAiImage && (
+                                              <div className="absolute top-2 right-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-md">
+                                                AI 생성
+                                              </div>
+                                            )}
+                                            {isRepresentative && (
+                                              <div className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-sm font-medium py-2 text-center rounded-b-lg">
+                                                대표 사진
+                                              </div>
+                                            )}
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              });
+                                  {!showAllImages && total > 3 && (
+                                    <div className="mt-2">
+                                      <button
+                                        type="button"
+                                        className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50"
+                                        onClick={() => setShowAllImages(true)}
+                                      >
+                                        전체보기 ({Math.min(10, total)}장)
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
+                              );
                             })()}
-                          </div>
+
+                            {/* 라이트박스 모달 */}
+                            {selectedImageIndex !== null && (
+                              <div className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-75">
+                                <button
+                                  type="button"
+                                  className="absolute top-4 right-4 text-white text-3xl font-bold z-70"
+                                  onClick={() => setSelectedImageIndex(null)}
+                                  aria-label="닫기"
+                                >
+                                  &times;
+                                </button>
+                                <button
+                                  type="button"
+                                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white text-4xl font-bold z-70"
+                                  onClick={() => {
+                                    if (!reportDetail) return;
+                                    const allImages = reportDetail.imagePreview
+                                      ? [reportDetail.imagePreview]
+                                      : reportDetail.realImages || [];
+                                    const total = allImages.length;
+                                    setSelectedImageIndex(
+                                      (selectedImageIndex! - 1 + total) % total
+                                    );
+                                  }}
+                                  aria-label="이전 이미지"
+                                >
+                                  &#8249;
+                                </button>
+                                <button
+                                  type="button"
+                                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white text-4xl font-bold z-70"
+                                  onClick={() => {
+                                    if (!reportDetail) return;
+                                    const allImages = reportDetail.imagePreview
+                                      ? [reportDetail.imagePreview]
+                                      : reportDetail.realImages || [];
+                                    const total = allImages.length;
+                                    setSelectedImageIndex(
+                                      (selectedImageIndex! + 1) % total
+                                    );
+                                  }}
+                                  aria-label="다음 이미지"
+                                >
+                                  &#8250;
+                                </button>
+                                <img
+                                  src={
+                                    getImageUrl(
+                                      reportDetail.imagePreview
+                                        ? [reportDetail.imagePreview][
+                                            selectedImageIndex
+                                          ]
+                                        : reportDetail.realImages
+                                        ? reportDetail.realImages[
+                                            selectedImageIndex
+                                          ]
+                                        : ""
+                                    ) || "/placeholder.svg"
+                                  }
+                                  alt={`강아지 사진 라이트박스 ${
+                                    selectedImageIndex + 1
+                                  }`}
+                                  className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-lg"
+                                />
+                                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 rounded-md px-3 py-1">
+                                  {selectedImageIndex! + 1} /{" "}
+                                  {reportDetail.imagePreview
+                                    ? 1
+                                    : reportDetail.realImages
+                                    ? reportDetail.realImages.length
+                                    : 0}
+                                </div>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <p className="text-gray-400">이미지가 없습니다.</p>
                         )}

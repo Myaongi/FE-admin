@@ -6,15 +6,11 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("delicia.zure@gmail.com");
-  const [password, setPassword] = useState("ghksl-091016");
-
-  const [manualAccess, setManualAccess] = useState("");
-  const [manualRefresh, setManualRefresh] = useState("");
+  const [email, setEmail] = useState("admin@mail.com");
+  const [password, setPassword] = useState("adminadmin123!");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [manualOpen, setManualOpen] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -79,37 +75,11 @@ export default function LoginPage() {
     }
   }
 
-  function handleManualSave() {
-    setError(null);
-
-    if (!manualAccess) {
-      setError("accessToken을 입력하세요.");
-      return;
-    }
-
-    // ✅ 기존 토큰 삭제
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-
-    // ✅ 새 토큰 수동 저장
-    localStorage.setItem("accessToken", manualAccess);
-    if (manualRefresh) {
-      localStorage.setItem("refreshToken", manualRefresh);
-    }
-
-    // ✅ 디버깅 로그
-    console.log("✅ 새 토큰 수동 저장 완료:", {
-      accessToken: manualAccess?.substring(0, 20) + "...",
-      refreshToken: manualRefresh?.substring(0, 20) + "...",
-    });
-
-    console.log("✅ 수동 토큰 저장 완료");
-    router.push("/admin/members");
-  }
-
   return (
     <div className="max-w-md mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6">🔐 로그인</h1>
+      <h1 className="text-xl font-bold mb-6">
+        🔐 강아지킴이 관리자 페이지에 로그인해주세요
+      </h1>
 
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
@@ -139,56 +109,15 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2 rounded bg-blue-500 text-white font-medium"
+          className="w-full h-12 bg-sky-400 hover:bg-sky-500 text-white text-lg font-bold rounded-2xl shadow-md transition-colors"
         >
-          {loading ? "로그인 중..." : "로그인"}
+          로그인
         </button>
       </form>
 
       {error && (
         <div className="mt-4 p-3 bg-red-50 text-red-600 rounded">{error}</div>
       )}
-
-      {/* 👇 토큰 수동 입력 섹션 */}
-      <div className="mt-8">
-        <button
-          className="text-sm underline text-gray-600"
-          onClick={() => setManualOpen((v) => !v)}
-        >
-          {manualOpen ? "수동 입력 닫기" : "토큰 수동 입력 (임시용)"}
-        </button>
-
-        {manualOpen && (
-          <div className="mt-4 space-y-3 p-4 border rounded">
-            <div>
-              <label className="block text-sm mb-1">accessToken</label>
-              <textarea
-                value={manualAccess}
-                onChange={(e) => setManualAccess(e.target.value)}
-                className="w-full border rounded px-3 py-2 h-20"
-                placeholder="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzYxMTYyODgzLCJleHAiOjE3NjExNjU4ODN9.M9q4Eg8JZv3W9aseT94wA7isIxFh1cqFZ_ZX3t7z9g4
-"
-              />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">refreshToken (선택)</label>
-              <textarea
-                value={manualRefresh}
-                onChange={(e) => setManualRefresh(e.target.value)}
-                className="w-full border rounded px-3 py-2 h-20"
-                placeholder="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzYxMTYyODgzLCJleHAiOjE3NjExNjU4ODN9.M9q4Eg8JZv3W9aseT94wA7isIxFh1cqFZ_ZX3t7z9g4"
-              />
-            </div>
-
-            <button
-              onClick={handleManualSave}
-              className="w-full py-2 rounded bg-gray-800 text-white font-medium"
-            >
-              토큰 저장하고 이동
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
