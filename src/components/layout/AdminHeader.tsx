@@ -52,7 +52,7 @@ export default function AdminHeader({
             onClick={() => window.location.reload()}
             className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <Image src={logo} alt="강아지킴이 로고" width={120} height={120} />
+            <Image src={logo} alt="강아지킴이 로고" width={100} height={100} />
           </button>
         </div>
 

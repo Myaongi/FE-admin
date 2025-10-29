@@ -338,7 +338,7 @@ export default function ReportsPage() {
       <div className="p-6 flex-1">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 tracking-wide leading-9">
-            신고 내역
+            신고 내역 관리
           </h1>
         </div>
 

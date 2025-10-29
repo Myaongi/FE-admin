@@ -99,14 +99,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col bg-gray-100 transition-all duration-300 min-w-0">
+      <main className="flex-1 flex flex-col bg-gray-100 transition-all duration-300 min-w-[480px] overflow-hidden">
         {/* Header */}
-        <AdminHeader
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={toggleSidebar}
-          user={user}
-          onLogout={handleLogout}
-        />
+        <div className="w-full overflow-hidden text-ellipsis whitespace-nowrap">
+          <AdminHeader
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={toggleSidebar}
+            user={user}
+            onLogout={handleLogout}
+          />
+        </div>
 
         {/* Page Content */}
         {children}

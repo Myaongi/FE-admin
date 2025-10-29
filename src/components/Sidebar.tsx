@@ -108,7 +108,7 @@ export default function Sidebar({
                       alt="신고 내역"
                       className="w-4 h-4"
                     />
-                    신고 내역
+                    신고 내역 관리
                   </span>
                 </div>
                 {/* <div className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 mb-1">
