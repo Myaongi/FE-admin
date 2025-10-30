@@ -310,9 +310,15 @@ export default function ReportDetailModal({
                           reportDetail.realImages.length > 0) ? (
                           <>
                             {(() => {
-                              const allImages = reportDetail.imagePreview
-                                ? [reportDetail.imagePreview]
-                                : reportDetail.realImages || [];
+                              // ✅ AI 이미지와 실제 이미지를 모두 포함하도록 수정
+                              const allImages = [
+                                ...(reportDetail.imagePreview
+                                  ? [reportDetail.imagePreview]
+                                  : []),
+                                ...(reportDetail.realImages?.filter(
+                                  (img) => img !== reportDetail.imagePreview // AI 이미지와 중복 제거
+                                ) || []),
+                              ];
                               const total = allImages.length;
                               const imagesToRender = showAllImages
                                 ? allImages.slice(0, 10)
@@ -324,7 +330,8 @@ export default function ReportDetailModal({
                                     {imagesToRender.map((src, idx) => {
                                       const isRepresentative = idx === 0;
                                       const isAiImage =
-                                        reportDetail.imagePreview && idx === 0;
+                                        reportDetail.imagePreview &&
+                                        src === reportDetail.imagePreview;
                                       return (
                                         <button
                                           key={`report-image-${idx}-${src?.slice(
@@ -345,11 +352,11 @@ export default function ReportDetailModal({
                                               alt={`강아지 사진 ${idx + 1}`}
                                               className="absolute inset-0 w-full h-full object-cover"
                                             />
-                                            {isAiImage && (
+                                            {/* {isAiImage && (
                                               <div className="absolute top-2 right-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow-md">
                                                 AI 생성
                                               </div>
-                                            )}
+                                            )} */}
                                             {isRepresentative && (
                                               <div className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-sm font-medium py-2 text-center rounded-b-lg">
                                                 대표 사진
