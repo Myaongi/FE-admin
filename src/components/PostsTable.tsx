@@ -54,8 +54,6 @@ export default function PostsTable({
     return `${year}.${month}.${day} 관리자 삭제`;
   };
 
-  console.log("🔥 PostsTable posts count:", posts.length, posts);
-
   return (
     <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
       <table className="table-auto min-w-max w-full border-separate border-spacing-0 text-sm">
