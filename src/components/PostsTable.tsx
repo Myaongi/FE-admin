@@ -22,7 +22,7 @@ interface PostsTableProps {
   posts: Post[];
   loading: boolean;
   error: string | null;
-  onDetailClick: (postId: number) => void;
+  onDetailClick: (type: "FOUND" | "LOST", postId: number) => void;
   onDeleteClick: (postId: number) => void;
 }
 
@@ -31,7 +31,6 @@ export default function PostsTable({
   loading,
   error,
   onDetailClick,
-  onDeleteClick,
 }: PostsTableProps) {
   // 대표사진 가져오기
   const getThumbnail = (post: Post) => {
@@ -54,6 +53,8 @@ export default function PostsTable({
     const day = date.getDate().toString().padStart(2, "0");
     return `${year}.${month}.${day} 관리자 삭제`;
   };
+
+  console.log("🔥 PostsTable posts count:", posts.length, posts);
 
   return (
     <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
@@ -106,8 +107,11 @@ export default function PostsTable({
               </td>
             </tr>
           ) : (
-            posts.map((post) => (
-              <tr key={post.postId} className="hover:bg-gray-50">
+            posts.map((post, i) => (
+              <tr
+                key={`${post.type}-${post.postId}-${i}`}
+                className="hover:bg-gray-50"
+              >
                 <td className="px-2 lg:px-4 py-2 border-b border-gray-100 align-middle whitespace-nowrap">
                   <StatusBadge status={post.status} />
                 </td>
@@ -145,7 +149,7 @@ export default function PostsTable({
                 <td className="px-2 lg:px-4 py-2 border-b border-gray-100 align-middle whitespace-nowrap">
                   <button
                     className="px-3 py-1.5 bg-white border border-black/10 rounded-full text-sm font-medium text-gray-900 tracking-tight leading-5 cursor-pointer transition-all duration-200 hover:bg-gray-50"
-                    onClick={() => onDetailClick(post.postId)}
+                    onClick={() => onDetailClick(post.type, post.postId)}
                   >
                     상세보기
                   </button>
@@ -160,7 +164,7 @@ export default function PostsTable({
                   ) : (
                     <button
                       className="px-3 py-1.5 bg-red-600 border-none rounded-full text-sm font-medium text-white tracking-tight leading-5 cursor-pointer transition-all duration-200 hover:bg-red-700"
-                      onClick={() => onDeleteClick(post.postId)}
+                      onClick={() => onDetailClick(post.type, post.postId)}
                     >
                       삭제
                     </button>

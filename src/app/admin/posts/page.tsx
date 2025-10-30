@@ -44,7 +44,7 @@ export default function PostsPage() {
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleDetailClick = (postId: number) => {
+  const handleDetailClick = (type: "FOUND" | "LOST", postId: number) => {
     const post = posts.find((p) => p.postId === postId);
     if (post) {
       setSelectedPostId(postId);
@@ -163,12 +163,16 @@ export default function PostsPage() {
       console.log("📦 API 응답:", response.data);
 
       if (response.data.isSuccess) {
-        const data = response.data.result.content;
-        // 중복된 postId 제거 (같은 postId가 있으면 첫 번째 것만 유지)
-        const uniquePosts = data.filter(
-          (post: any, index: number, self: any[]) =>
-            index === self.findIndex((p: any) => p.postId === post.postId)
-        );
+        console.log("✅ data 구조 확인:", response.data.result);
+        const result = response.data.result;
+        const data = result?.content || [];
+
+        // 기존 중복 제거 대신 타입 + ID로 유니크 처리
+        const uniquePosts = data.map((post: any) => ({
+          ...post,
+          uniqueKey: `${post.type}-${post.postId}`,
+        }));
+
         setPosts(uniquePosts);
       } else {
         throw new Error(
