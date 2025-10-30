@@ -31,7 +31,7 @@ export default function PostDetailModal({
     "post"
   );
 
-  // 게시글 상세 정보 가져오기
+  // 게시글 상세 정보 가져오기 - 내부 API 경유
   const fetchPostDetail = async (id: number, type: "LOST" | "FOUND") => {
     setLoading(true);
     setError(null);
@@ -47,36 +47,27 @@ export default function PostDetailModal({
         throw new Error("게시글 타입이 필요합니다.");
       }
 
-      console.log("API 호출 시작:", `/api/admin/posts/${type}/${id}`);
+      const url = `/api/admin/posts/${type}/${id}`;
+      console.log("API 호출 시작:", url);
 
-      const response = await apiClient.getPostDetail(id, type, accessToken);
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
-      console.log("📦 전달된 type:", type);
-      console.log("API 응답 받음:", response);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
-      if (response.isSuccess && response.result) {
-        console.log("게시글 상세 데이터:", response.result);
-        const data = response.result;
+      const data = await response.json();
+      console.log("API 응답 받음:", data);
 
-        // 서버에서 받은 데이터가 예상 형식과 다를 수 있으므로 로그 출력
-        console.log("📋 서버 응답 구조:", {
-          isSuccess: response.isSuccess,
-          result: response.result,
-          message: response.message,
-          code: response.code,
-        });
-
-        // content 객체에서 실제 데이터 추출
-        const postData = (data as any).content || data;
+      if (data.isSuccess && data.result) {
+        const postData = (data.result as any).content || data.result;
         console.log("📋 추출된 게시글 데이터:", postData);
-
-        // 타입 검증 - 더 자세한 로그 출력
-        console.log("🔍 타입 검증:", {
-          receivedType: postData.type,
-          expectedType: type,
-          typeCheck: postData.type === type,
-          isValidType: postData.type === "LOST" || postData.type === "FOUND",
-        });
 
         if (!postData.type) {
           throw new Error(
@@ -94,32 +85,32 @@ export default function PostDetailModal({
           console.warn(
             `⚠️ 타입 불일치: 받은 타입 "${postData.type}", 요청한 타입 "${type}"`
           );
-          // 타입이 다르더라도 계속 진행 (서버에서 다른 타입의 데이터를 반환할 수 있음)
         }
 
         setPostDetail(postData);
       } else {
-        throw new Error(response.error || "API 응답 오류");
+        throw new Error(data.error || "API 응답 오류");
       }
     } catch (err: any) {
       console.error("게시글 상세 정보 조회 오류:", err);
 
-      // 더 구체적인 에러 메시지 제공
       let errorMessage = "게시글 상세 정보를 불러오는데 실패했습니다.";
-
-      if (err.message.includes("Failed to fetch")) {
-        errorMessage =
-          "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.";
-      } else if (err.message.includes("요청 시간이 초과")) {
-        errorMessage = "요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.";
-      } else if (err.message.includes("401")) {
-        errorMessage = "인증이 필요합니다. 다시 로그인해주세요.";
-      } else if (err.message.includes("404")) {
-        errorMessage = "해당 게시글을 찾을 수 없습니다.";
-      } else if (err.message.includes("500")) {
-        errorMessage = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-      } else if (err.message) {
-        errorMessage = err.message;
+      if (typeof err.message === "string") {
+        if (err.message.includes("Failed to fetch")) {
+          errorMessage =
+            "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.";
+        } else if (err.message.includes("요청 시간이 초과")) {
+          errorMessage =
+            "요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.";
+        } else if (err.message.includes("401")) {
+          errorMessage = "인증이 필요합니다. 다시 로그인해주세요.";
+        } else if (err.message.includes("404")) {
+          errorMessage = "해당 게시글을 찾을 수 없습니다.";
+        } else if (err.message.includes("500")) {
+          errorMessage = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+        } else {
+          errorMessage = err.message;
+        }
       }
 
       setError(errorMessage);

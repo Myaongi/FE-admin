@@ -89,88 +89,37 @@ export async function GET(
         },
       });
     } else {
-      // 실제 서버 API 호출 - 개별 조회가 안 되므로 전체 목록에서 찾기
+      // 실제 서버 API 호출 - 단건 조회로 변경
       const apiClient = getApiClient();
 
       // Authorization 헤더에서 토큰 추출
       const authHeader = request.headers.get("authorization");
       const token = authHeader?.replace("Bearer ", "") || "";
 
-      console.log("🔍 전체 목록에서 포스트 찾기:", postId, "타입:", postType);
+      console.log("🔍 단건 게시글 조회:", postId, "타입:", postType);
       console.log(
         "🔑 사용할 토큰:",
         token ? token.substring(0, 20) + "..." : "없음"
       );
 
       try {
-        // 전체 목록 조회
-        const response = await apiClient.getPosts(
-          {
-            type: undefined,
-            aiOnly: undefined,
-            page: 1,
-            size: 1000, // 충분히 큰 수로 설정
-          },
+        const response = await apiClient.getPostDetail(
+          postId,
+          postType as "LOST" | "FOUND",
           token
         );
 
-        console.log("📦 전체 목록 서버 응답:", response);
+        console.log("📦 단건 상세 서버 응답:", response);
 
         if (response.isSuccess && response.result) {
-          console.log("✅ 전체 목록 응답 성공");
-
-          // 해당 postId와 타입을 가진 포스트 찾기
-          const targetPost = response.result.content.find(
-            (post: any) => post.postId === postId && post.type === postType
-          );
-
-          if (targetPost) {
-            console.log("✅ 포스트 찾음:", targetPost);
-            return NextResponse.json(
-              {
-                isSuccess: true,
-                result: targetPost,
-                message: "SUCCESS!",
-                code: "COMMON200",
-              },
-              {
-                headers: {
-                  "Access-Control-Allow-Origin": "*",
-                  "Access-Control-Allow-Methods":
-                    "GET, POST, PUT, DELETE, OPTIONS",
-                  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                },
-              }
-            );
-          } else {
-            console.log("❌ 포스트를 찾을 수 없음:", postId, "타입:", postType);
-            return NextResponse.json(
-              { error: "게시글을 찾을 수 없습니다." },
-              {
-                status: 404,
-                headers: {
-                  "Access-Control-Allow-Origin": "*",
-                  "Access-Control-Allow-Methods":
-                    "GET, POST, PUT, DELETE, OPTIONS",
-                  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                },
-              }
-            );
-          }
-        } else {
-          console.log(
-            "❌ 전체 목록 응답 실패:",
-            response.message || response.error
-          );
           return NextResponse.json(
             {
-              error:
-                response.message ||
-                response.error ||
-                "게시글 목록을 가져올 수 없습니다.",
+              isSuccess: true,
+              result: response.result,
+              message: response.message || "SUCCESS!",
+              code: response.code || "COMMON200",
             },
             {
-              status: 500,
               headers: {
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods":
@@ -180,8 +129,27 @@ export async function GET(
             }
           );
         }
+
+        const errorMessage =
+          response.error || response.message || "게시글을 가져올 수 없습니다.";
+        const status =
+          (response as any).status && Number.isInteger((response as any).status)
+            ? (response as any).status
+            : 500;
+
+        return NextResponse.json(
+          { error: errorMessage },
+          {
+            status,
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
+          }
+        );
       } catch (error) {
-        console.error("전체 목록 조회 중 오류:", error);
+        console.error("단건 상세 조회 중 오류:", error);
         return NextResponse.json(
           { error: "서버 오류가 발생했습니다." },
           {
