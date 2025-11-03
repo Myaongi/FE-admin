@@ -91,7 +91,7 @@ export default function ReportDetailModal({
       console.log("📦 신고 상세 조회 응답:", data);
 
       if (data.isSuccess && data.result) {
-        setReportDetail(data.result.content);
+        setReportDetail(data.result);
       } else {
         throw new Error(
           data.error || "신고 상세 정보를 불러오는데 실패했습니다."
