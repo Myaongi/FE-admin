@@ -169,6 +169,17 @@ class ApiClient {
       }
       console.groupEnd();
 
+      if (response.status === 401) {
+        //자동 로그아웃
+        console.warn("⚠️ 토큰 만료 또는 인증 오류 발생");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("accessToken");
+          alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+          window.location.href = "/login";
+        }
+        throw new Error("Unauthorized");
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.log(`❌ 서버 오류 응답 원문:`, errorText);
