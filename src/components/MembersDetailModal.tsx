@@ -294,6 +294,12 @@ export default function MembersDetailModal({
                           {formatDate(memberDetailData.joinedAt)}
                         </span>
                       </div>
+                      <div>
+                        <span className="text-gray-600">회원 ID:</span>
+                        <span className="ml-2 font-medium text-gray-900">
+                          {memberDetailData.id}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">활동 상태:</span>
                         {renderStatusBadge(memberDetailData.status)}

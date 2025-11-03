@@ -260,6 +260,11 @@ export default function PostDetailModal({
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h3 className="text-xl font-bold text-gray-900">
               게시물 상세 정보
+              {postDetail?.postId && (
+                <span className="ml-2 text-sm font-semibold text-gray-700">
+                  (ID: {postDetail.postId})
+                </span>
+              )}
             </h3>
             <button
               type="button"
