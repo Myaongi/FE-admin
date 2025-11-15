@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiClient } from "@/lib/api-client";
+import { getReports } from "@/lib/reports-api";
 
 // CORS preflight 요청 처리
 export async function OPTIONS() {
@@ -37,11 +38,9 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔥 신고 내역 API 호출: page=${page}, size=${size}`);
 
-    // 실제 서버 API 호출
-    const apiClient = getApiClient();
-    const token = authHeader.replace("Bearer ", "");
-
-    const response = await apiClient.getReports(page, size, token);
+    // 실제 서버 API 호출 - reports-api.ts 사용
+    const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+    const response = await getReports({ page, size }, token);
 
     console.log("📦 신고 내역 API 응답:", response);
 
@@ -82,14 +81,24 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("❌ 신고 내역 조회 실패:", error);
 
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 오류가 발생했습니다.";
+
+    if (error?.response?.data) {
+      errorMessage = error.response.data.error || error.response.data.message || errorMessage;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+
     return NextResponse.json(
       {
         isSuccess: false,
-        error: error.message || "서버 오류가 발생했습니다.",
+        error: errorMessage,
         message: "신고 내역 조회 실패",
       },
       {
-        status: 500,
+        status: statusCode,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",

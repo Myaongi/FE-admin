@@ -8,23 +8,12 @@ import SearchFilter from "@/components/filters/SearchFilter";
 import DropdownPortal from "@/components/ui/DropdownPortal";
 import MembersDetailModal from "@/components/MembersDetailModal";
 import ActivityBadge from "@/components/badge/ActivityBadge";
-
-interface Member {
-  id: number;
-  nickname: string;
-  email: string;
-  joinedAt: number[];
-  status: "ACTIVATED" | "UNACTIVATED";
-}
-
-interface MembersResponse {
-  content: Member[];
-  totalElements: number;
-  totalPages: number;
-  page: number;
-  size: number;
-  totalUsers: number;
-}
+import {
+  getMembers,
+  updateMemberStatus,
+  deleteMember,
+  Member,
+} from "@/lib/members-api";
 
 export default function MembersPage() {
   const router = useRouter();
@@ -54,92 +43,42 @@ export default function MembersPage() {
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
+      console.log(`👥 사용자 목록 API 호출: query=${query}, page=${page}, size=${pageSize}`);
+
+      const response = await getMembers({
+        query: query.trim() || undefined,
+        page,
+        size: pageSize,
+      });
+
+      console.log("📦 사용자 목록 API 응답:", response);
+
+      if (response.isSuccess && response.result) {
+        setMembers(response.result.content);
+        setTotalElements(response.result.totalElements);
+        setTotalPages(response.result.totalPages);
+        setCurrentPage(response.result.page);
+        setTotalUsers(response.result.totalUsers || response.result.totalElements);
+        console.log("✅ 사용자 목록 로드 성공:", response.result.content.length, "명");
+      } else {
+        throw new Error("사용자 목록을 불러올 수 없습니다.");
+      }
+    } catch (err: any) {
+      console.error("사용자 목록 조회 오류:", err);
+
+      // 401 에러 시 로그아웃
+      if (err.response?.status === 401) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
         router.push("/login");
         return;
       }
 
-      // 토큰 형식 확인
-      console.log("🔑 토큰 길이:", accessToken.length);
-      console.log("🔑 토큰 시작:", accessToken.substring(0, 20) + "...");
-      console.log(
-        "🔑 토큰 끝:",
-        "..." + accessToken.substring(accessToken.length - 20)
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "사용자 목록을 불러오는데 실패했습니다."
       );
-
-      const params = new URLSearchParams({
-        page: page.toString(),
-        size: pageSize.toString(),
-      });
-
-      if (query.trim()) {
-        params.append("query", query.trim());
-      }
-
-      const response = await fetch(`/api/admin/members?${params}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ HTTP ${response.status} 오류:`, errorText);
-
-        // 403 오류인 경우 토큰이 만료되었을 가능성이 높음
-        if (response.status === 403) {
-          console.error("🔐 403 오류: 토큰이 만료되었거나 권한이 없습니다.");
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("user");
-          router.push("/login");
-          return;
-        }
-
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText} - ${errorText}`
-        );
-      }
-
-      const data = await response.json();
-      console.log("📦 API 응답 데이터:", data);
-
-      if (data.isSuccess) {
-        const result = data.result as MembersResponse;
-        setMembers(result.content);
-        setTotalElements(result.totalElements);
-        setTotalPages(result.totalPages);
-        setCurrentPage(result.page);
-        setTotalUsers(result.totalUsers || result.totalElements);
-        console.log("✅ 사용자 목록 로드 성공:", result.content.length, "명");
-        console.log("✅ 사용자 목록:", result.content);
-      } else {
-        console.error("❌ API 응답 실패:", data);
-        throw new Error(data.message || data.error || "API 응답 오류");
-      }
-    } catch (err: unknown) {
-      console.error("사용자 목록 조회 오류:", err);
-
-      // 구체적인 오류 메시지 설정
-      let errorMessage = "사용자 목록을 불러오는데 실패했습니다.";
-      if (err instanceof Error) {
-        if (err.message.includes("Failed to fetch")) {
-          errorMessage =
-            "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.";
-        } else if (err.message.includes("timeout")) {
-          errorMessage =
-            "요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
-        } else if (err.message.includes("401")) {
-          errorMessage = "인증이 필요합니다. 다시 로그인해주세요.";
-        } else if (err.message.includes("500")) {
-          errorMessage = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-        } else {
-          errorMessage = err.message;
-        }
-      }
-
-      setError(errorMessage);
       setMembers([]);
     } finally {
       setLoading(false);
@@ -262,86 +201,29 @@ export default function MembersPage() {
     status: "ACTIVATED" | "UNACTIVATED"
   ) => {
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        router.push("/login");
-        return;
-      }
+      console.log(`🔄 사용자 상태 변경: memberId=${memberId}, status=${status}`);
 
-      const response = await fetch(`/api/admin/members/${memberId}/status`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      });
+      const response = await updateMemberStatus(memberId, status);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log("📦 상태 변경 응답:", response);
 
-      const data = await response.json();
-
-      if (data.isSuccess) {
+      if (response.isSuccess) {
         const statusKorean = status === "ACTIVATED" ? "활성화됨" : "비활성화됨";
         alert(`계정이 ${statusKorean} 상태로 변경되었습니다.`);
         handleCloseDropdown();
 
-        // 상태가 UNACTIVATED로 변경된 경우 현재 날짜를 로컬 스토리지에 저장
-        if (status === "UNACTIVATED") {
-          const deactivatedAt = new Date();
-          const deactivatedAtArray = [
-            deactivatedAt.getFullYear(),
-            deactivatedAt.getMonth() + 1,
-            deactivatedAt.getDate(),
-          ];
-
-          // 로컬 스토리지에서 기존 비활성화 사용자 데이터 가져오기
-          const deactivatedUsers = JSON.parse(
-            localStorage.getItem("deactivatedUsers") || "{}"
-          );
-          deactivatedUsers[memberId] = deactivatedAtArray;
-          localStorage.setItem(
-            "deactivatedUsers",
-            JSON.stringify(deactivatedUsers)
-          );
-
-          console.log(
-            `📅 사용자 ${memberId} 비활성화 날짜 저장:`,
-            deactivatedAtArray
-          );
-        } else if (status === "ACTIVATED") {
-          // 활성화된 경우 비활성화 날짜 제거
-          const deactivatedUsers = JSON.parse(
-            localStorage.getItem("deactivatedUsers") || "{}"
-          );
-          delete deactivatedUsers[memberId];
-          localStorage.setItem(
-            "deactivatedUsers",
-            JSON.stringify(deactivatedUsers)
-          );
-
-          console.log(`📅 사용자 ${memberId} 비활성화 날짜 제거`);
-        }
-
-        // 로컬 상태 즉시 업데이트
-        setMembers((prevMembers) =>
-          prevMembers.map((member) =>
-            member.id === memberId ? { ...member, status } : member
-          )
-        );
-
-        // 서버 데이터와 동기화 (선택적)
-        // fetchMembers(searchQuery, currentPage);
+        // 서버에서 최신 데이터 다시 가져오기
+        await fetchMembers(searchQuery, currentPage);
       } else {
-        throw new Error(
-          data.message || data.error || "상태 변경에 실패했습니다."
-        );
+        throw new Error(response.message || "상태 변경에 실패했습니다.");
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("상태 변경 오류:", err);
-      alert((err as Error).message || "상태 변경에 실패했습니다.");
+      alert(
+        err.response?.data?.message ||
+          err.message ||
+          "상태 변경에 실패했습니다."
+      );
     }
   };
 
@@ -352,39 +234,28 @@ export default function MembersPage() {
     }
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        router.push("/login");
-        return;
-      }
+      console.log(`🗑️ 사용자 삭제: memberId=${memberId}`);
 
-      const response = await fetch(`/api/admin/members/${memberId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await deleteMember(memberId);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log("📦 삭제 응답:", response);
 
-      const data = await response.json();
-
-      if (data.isSuccess) {
-        alert(data.result || "계정이 삭제되었습니다.");
+      if (response.isSuccess) {
+        alert(response.result || "계정이 삭제되었습니다.");
         handleCloseDropdown();
-        // 테이블 다시 갱신
-        fetchMembers(searchQuery, currentPage);
+        
+        // 서버에서 최신 데이터 다시 가져오기
+        await fetchMembers(searchQuery, currentPage);
       } else {
-        throw new Error(
-          data.message || data.error || "계정 삭제에 실패했습니다."
-        );
+        throw new Error(response.message || "계정 삭제에 실패했습니다.");
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("계정 삭제 오류:", err);
-      alert((err as Error).message || "계정 삭제에 실패했습니다.");
+      alert(
+        err.response?.data?.message ||
+          err.message ||
+          "계정 삭제에 실패했습니다."
+      );
     }
   };
 

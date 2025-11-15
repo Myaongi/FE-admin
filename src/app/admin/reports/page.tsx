@@ -1,5 +1,4 @@
 "use client";
-import ReportStatusBadge from "@/components/badge/ReportStatusBadge";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +6,13 @@ import AdminTable from "@/components/tables/AdminTable";
 import TablePagination from "@/components/tables/TablePagination";
 import ReportDetailModal from "@/components/ReportDetailModal";
 import PostDetailModal from "@/components/PostDetailModal";
-import { Report } from "@/lib/mock/reports";
+import ReportStatusBadge from "@/components/badge/ReportStatusBadge";
+import {
+  getReports,
+  ignoreReport,
+  deleteReportedPost,
+  Report,
+} from "@/lib/reports-api";
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -29,51 +34,40 @@ export default function ReportsPage() {
     "LOST" | "FOUND" | null
   >(null);
 
-  // 신고 내역 목록 조회 (실제 API 호출)
+  // 신고 내역 목록 조회
   const fetchReports = async (page: number = 0) => {
     setLoading(true);
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        throw new Error("인증 토큰이 없습니다.");
-      }
-
       console.log(`🔥 신고 내역 API 호출: page=${page}, size=${pageSize}`);
 
-      const response = await fetch(
-        `/api/admin/reports?page=${page}&size=${pageSize}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await getReports({
+        page,
+        size: pageSize,
+      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log("📦 신고 내역 API 응답:", response);
 
-      const data = await response.json();
-      console.log("📦 신고 내역 API 응답:", data);
-
-      if (data.isSuccess && data.result) {
-        const reportsData = data.result.content || data.result;
+      if (response.isSuccess && response.result) {
+        const reportsData = response.result.content || [];
         setReports(reportsData);
-        setTotalElements(data.result.totalElements || reportsData.length);
+        setTotalElements(response.result.totalElements || reportsData.length);
         setTotalPages(
-          data.result.totalPages || Math.ceil(reportsData.length / pageSize)
+          response.result.totalPages || Math.ceil(reportsData.length / pageSize)
         );
         setCurrentPage(page);
+        console.log("✅ 신고 내역 로드 성공:", reportsData.length, "건");
       } else {
-        throw new Error(data.error || "신고 내역을 불러올 수 없습니다.");
+        throw new Error("신고 내역을 불러올 수 없습니다.");
       }
     } catch (err: any) {
       console.error("신고 내역 조회 오류:", err);
-      setError("신고 내역을 불러오는데 실패했습니다.");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "신고 내역을 불러오는데 실패했습니다."
+      );
       setReports([]);
     } finally {
       setLoading(false);
@@ -133,108 +127,60 @@ export default function ReportsPage() {
   };
 
   // 신고 무시 처리 핸들러
-  const handleIgnore = async (type: string, reportId: number) => {
+  const handleIgnore = async (type: "LOST" | "FOUND", reportId: number) => {
     if (!confirm("정말 이 신고를 무시 처리하시겠습니까?")) return;
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        alert("인증 토큰이 없습니다.");
-        return;
-      }
-
       console.log(`🩶 신고 무시 처리: type=${type}, reportId=${reportId}`);
 
-      const response = await fetch(
-        `/api/admin/reports/${type}/${reportId}/ignore`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await ignoreReport(type, reportId);
 
-      const data = await response.json();
-      console.log("📦 신고 무시 처리 응답:", data);
+      console.log("📦 신고 무시 처리 응답:", response);
 
-      if (response.ok && data.isSuccess) {
+      if (response.isSuccess) {
         alert("✅ 신고 무효처리가 완료되었습니다.");
-        const now = new Date();
-        const formattedDate = `${now.getFullYear()}.${(now.getMonth() + 1)
-          .toString()
-          .padStart(2, "0")}.${now.getDate().toString().padStart(2, "0")}`;
-        setReports((prev) =>
-          prev.map((r) =>
-            r.reportId === reportId
-              ? ({
-                  ...(r as any),
-                  status: `${formattedDate} 무시됨`,
-                  _isActionDone: true,
-                } as Report)
-              : r
-          )
-        );
+
+        // 서버에서 최신 데이터 다시 가져오기
+        await fetchReports(currentPage);
       } else {
-        alert("❌ 신고 무효처리에 실패했습니다: " + (data.message || "오류"));
+        throw new Error(response.message || "신고 무효처리에 실패했습니다.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("신고 무시 처리 오류:", err);
-      alert("서버 오류가 발생했습니다.");
+      alert(
+        err.response?.data?.message ||
+          err.message ||
+          "서버 오류가 발생했습니다."
+      );
     }
   };
 
   // 신고 게시글 삭제 핸들러
-  const handleDelete = async (type: string, reportId: number) => {
+  const handleDelete = async (type: "LOST" | "FOUND", reportId: number) => {
     if (!confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        alert("인증 토큰이 없습니다.");
-        return;
-      }
-
       console.log(`🧹 신고 게시글 삭제: type=${type}, reportId=${reportId}`);
 
-      const response = await fetch(
-        `/api/admin/reports/${type}/${reportId}/delete`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await deleteReportedPost(type, reportId);
 
-      const data = await response.json();
-      console.log("📦 신고 게시글 삭제 응답:", data);
+      console.log("📦 신고 게시글 삭제 응답:", response);
 
-      if (response.ok && data.isSuccess) {
+      if (response.isSuccess) {
         alert("🗑️ 신고된 게시글이 성공적으로 삭제되었습니다.");
-        const now = new Date();
-        const formattedDate = `${now.getFullYear()}.${(now.getMonth() + 1)
-          .toString()
-          .padStart(2, "0")}.${now.getDate().toString().padStart(2, "0")}`;
-        setReports((prev) =>
-          prev.map((r) =>
-            r.reportId === reportId
-              ? ({
-                  ...(r as any),
-                  status: `${formattedDate} 삭제됨`,
-                  _isActionDone: true,
-                } as Report)
-              : r
-          )
-        );
+
+        // 서버에서 최신 데이터 다시 가져오기
+        await fetchReports(currentPage);
       } else {
-        alert("❌ 삭제에 실패했습니다: " + (data.message || "오류 발생"));
+        throw new Error(response.message || "삭제에 실패했습니다.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("신고 게시글 삭제 오류:", err);
-      alert("서버 오류가 발생했습니다.");
+      alert(
+        err.response?.data?.message ||
+          err.message ||
+          "서버 오류가 발생했습니다."
+      );
     }
   };
 
@@ -254,11 +200,13 @@ export default function ReportsPage() {
 
   // 관리자 작업 버튼 렌더링
   const renderAdminActions = (report: Report) => {
-    if ((report as any)._isActionDone) {
+    // 이미 처리된 신고는 상태만 표시
+    if (report.status.includes("무시됨") || report.status.includes("삭제됨")) {
       return (
         <div className="text-sm text-gray-500 font-medium">{report.status}</div>
       );
     }
+
     return (
       <div className="flex gap-2">
         <button

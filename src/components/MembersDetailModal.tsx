@@ -7,6 +7,7 @@ import PostDetailModal from "./PostDetailModal";
 import Image from "next/image";
 import ActivityBadge from "@/components/badge/ActivityBadge";
 import { getImageUrl } from "@/lib/url-utils";
+import { getMemberDetail } from "@/lib/members-api";
 
 interface Member {
   id: number;
@@ -89,28 +90,15 @@ export default function MembersDetailModal({
         throw new Error("인증 토큰이 없습니다. 다시 로그인해주세요.");
       }
 
-      const response = await fetch(`/api/admin/members/${id}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await getMemberDetail(id);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText} - ${errorText}`
-        );
-      }
+      console.log("📦 사용자 상세 API 응답:", response);
 
-      const data = await response.json();
-      console.log("📦 사용자 상세 API 응답:", JSON.stringify(data, null, 2));
-
-      if (data.isSuccess && data.result) {
-        console.log("✅ 사용자 상세 데이터 설정:", data.result);
+      if (response.isSuccess && response.result) {
+        console.log("✅ 사용자 상세 데이터 설정:", response.result);
 
         // 로컬 스토리지에서 비활성화 날짜 가져오기
-        const memberData = { ...data.result };
+        const memberData = { ...response.result };
         if (memberData.status === "UNACTIVATED" && memberId) {
           const deactivatedUsers = JSON.parse(
             localStorage.getItem("deactivatedUsers") || "{}"
@@ -126,12 +114,16 @@ export default function MembersDetailModal({
 
         setMemberDetailData(memberData);
       } else {
-        console.error("❌ API 응답 실패:", data);
-        throw new Error(data.message || data.error || "API 응답 오류");
+        console.error("❌ API 응답 실패:", response);
+        throw new Error(response.error || response.message || "API 응답 오류");
       }
     } catch (err: any) {
       console.error("사용자 상세 정보 조회 오류:", err);
-      setError(err.message || "사용자 상세 정보를 불러오는데 실패했습니다.");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "사용자 상세 정보를 불러오는데 실패했습니다."
+      );
     } finally {
       setLoading(false);
     }

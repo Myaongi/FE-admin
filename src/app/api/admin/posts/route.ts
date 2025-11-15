@@ -197,73 +197,50 @@ export async function GET(request: NextRequest) {
 
       // Authorization 헤더에서 토큰 추출
       const authHeader = request.headers.get("authorization");
-      const token = authHeader?.replace("Bearer ", "") || "";
 
-      const response = await apiClient.getPosts(
-        {
+      const response = await apiClient.get("/api/admin/posts", {
+        params: {
           type,
           aiOnly,
           page,
           size,
         },
-        token
-      );
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
 
-      console.log("📦 서버 응답:", response);
+      console.log("📦 서버 응답:", response.data);
 
-      if (response.success || response.isSuccess) {
+      if (response.data.success || response.data.isSuccess) {
         console.log("✅ 서버 응답 성공");
-        return NextResponse.json(response);
+        return NextResponse.json(response.data);
       } else {
-        console.log("❌ 서버 응답 실패:", response.error);
+        console.log("❌ 서버 응답 실패:", response.data.error);
         return NextResponse.json(
           {
             error:
-              response.error || "서버에서 데이터를 가져오는데 실패했습니다.",
+              response.data.error ||
+              "서버에서 데이터를 가져오는데 실패했습니다.",
           },
           { status: 500 }
         );
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("API Error:", error);
 
-    // 서버에서 온 상태 코드가 있으면 그대로 사용
-    if (error && typeof error === "object" && "status" in error) {
-      const status = (error as any).status;
-      const statusText = (error as any).statusText || "Server Error";
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 오류가 발생했습니다.";
 
-      console.log(`🔍 서버 상태 코드 전달: ${status} ${statusText}`);
-
-      return NextResponse.json(
-        { error: (error as any).message || "서버 오류가 발생했습니다." },
-        { status: status }
-      );
+    if (error?.response?.data) {
+      errorMessage =
+        error.response.data.error ||
+        error.response.data.message ||
+        errorMessage;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
 
-    // 에러 타입에 따른 적절한 응답
-    if (error instanceof Error) {
-      if (error.message.includes("401")) {
-        return NextResponse.json(
-          { error: "인증이 필요합니다." },
-          { status: 401 }
-        );
-      } else if (error.message.includes("404")) {
-        return NextResponse.json(
-          { error: "API 엔드포인트를 찾을 수 없습니다." },
-          { status: 404 }
-        );
-      } else if (error.message.includes("네트워크")) {
-        return NextResponse.json(
-          { error: "서버에 연결할 수 없습니다. 네트워크를 확인해주세요." },
-          { status: 503 }
-        );
-      }
-    }
-
-    return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 }

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import logo from "@/assets/logo.svg";
+import { login } from "@/lib/auth-api";
+import { getMembers } from "@/lib/members-api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +15,40 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // 이미 로그인되어 있고 토큰이 유효한지 확인
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      const token = localStorage.getItem("accessToken");
+      const userData = localStorage.getItem("user");
+
+      if (!token || !userData) {
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      // 토큰이 있으면 유효성 확인
+      try {
+        await getMembers({ page: 0, size: 1 }, token);
+        // 토큰이 유효하면 어드민 페이지로 리다이렉트
+        router.push("/admin/members");
+      } catch (error: any) {
+        // 토큰이 유효하지 않으면 로그인 화면 유지
+        if (
+          error?.response?.status === 401 ||
+          error?.response?.status === 403
+        ) {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          localStorage.removeItem("user");
+        }
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkExistingAuth();
+  }, [router]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -20,23 +56,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await login(email, password);
 
-      if (!res.ok) {
-        const msg = `로그인 실패 (status: ${res.status})`;
-        throw new Error(msg);
+      if (!response.isSuccess || !response.result) {
+        throw new Error(
+          response.error || response.message || "로그인에 실패했습니다."
+        );
       }
 
-      const data = await res.json();
-
-      const accessToken = data?.result?.accessToken;
-      const refreshToken = data?.result?.refreshToken;
+      const data = response.result;
+      const accessToken = data.accessToken;
+      const refreshToken = data.refreshToken;
 
       if (!accessToken) {
         throw new Error("응답에 accessToken이 없습니다.");
@@ -60,8 +90,8 @@ export default function LoginPage() {
 
       // ✅ 사용자 정보 저장 (선택)
       const userInfo = {
-        userId: data?.result?.userId,
-        name: data?.result?.memberName,
+        userId: data.userId,
+        name: data.memberName,
         email,
         role: "admin",
       };
@@ -71,10 +101,42 @@ export default function LoginPage() {
       router.push("/admin/members");
     } catch (err: any) {
       console.error("❌ 로그인 오류:", err);
-      setError(err?.message || "로그인에 실패했습니다.");
+
+      // 에러 처리
+      let errorMessage = "로그인에 실패했습니다.";
+      if (err?.response) {
+        // axios 에러 - 서버가 응답했지만 상태 코드가 2xx가 아닌 경우
+        errorMessage =
+          err.response.data?.error ||
+          err.response.data?.message ||
+          `로그인 실패 (status: ${err.response.status})`;
+      } else if (err?.request) {
+        // axios 에러 - 요청은 보냈지만 응답을 받지 못한 경우
+        errorMessage = "서버에 연결할 수 없습니다. 네트워크를 확인해주세요.";
+      } else if (err?.message) {
+        // 일반 에러
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
+  }
+
+  // 인증 확인 중이면 로딩 화면 표시
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-sky-300 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            강아지킴이 관리자
+          </h2>
+          <p className="text-sm text-gray-600">인증 확인 중...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

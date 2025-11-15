@@ -1,5 +1,6 @@
 // src/app/api/admin/members/[id]/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { updateMemberStatus } from "@/lib/members-api";
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -18,28 +19,23 @@ export async function PATCH(
 ) {
   try {
     const { id } = await context.params;
-    const memberId = id;
+    const memberId = parseInt(id);
     const body = await request.json();
     const { status } = body;
-    const token = request.headers.get("authorization");
+    const authHeader = request.headers.get("authorization");
 
-    // ✅ 실서버 요청 URL
-    const externalUrl = `http://54.180.54.51:8080/api/admin/members/${memberId}/status`;
+    // 실제 서버 API 호출 - members-api.ts 사용
+    const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+    const response = await updateMemberStatus(
+      memberId,
+      status as "ACTIVATED" | "UNACTIVATED",
+      token
+    );
 
-    const res = await fetch(externalUrl, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: token } : {}),
-      },
-      body: JSON.stringify({ status }),
-    });
+    console.log("✅ 서버 응답:", response);
 
-    const data = await res.json();
-    console.log("✅ 서버 응답:", data);
-
-    return NextResponse.json(data, {
-      status: res.status,
+    return NextResponse.json(response, {
+      status: response.isSuccess ? 200 : 500,
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods":
@@ -47,12 +43,24 @@ export async function PATCH(
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ 계정 상태 변경 오류:", error);
+
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 요청에 실패했습니다.";
+
+    if (error?.response?.data) {
+      errorMessage =
+        error.response.data.error ||
+        error.response.data.message ||
+        errorMessage;
+    }
+
     return NextResponse.json(
-      { error: "서버 요청에 실패했습니다." },
+      { error: errorMessage },
       {
-        status: 500,
+        status: statusCode,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods":

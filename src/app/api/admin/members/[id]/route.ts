@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockMembers } from "@/lib/mock/members";
+import { getMemberDetail, deleteMember } from "@/lib/members-api";
 
 // CORS preflight 요청 처리
 export async function OPTIONS() {
@@ -86,65 +87,43 @@ export async function GET(
         },
       });
     } else {
-      // 실제 서버 API 호출
+      // 실제 서버 API 호출 - members-api.ts 사용
       try {
-        const externalApiUrl = "http://54.180.54.51:8080";
-        const fullUrl = `${externalApiUrl}/api/admin/members/${memberId}`;
-        console.log("🌐 외부 API 직접 호출:", fullUrl);
-
-        const response = await fetch(fullUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(authHeader && { Authorization: authHeader }),
-          },
-          // 타임아웃 설정
-          signal: AbortSignal.timeout(10000), // 10초 타임아웃
-        });
+        const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+        const response = await getMemberDetail(memberId, token);
 
         console.log(
-          "📡 외부 API 응답 상태:",
-          response.status,
-          response.statusText
+          "✅ 외부 서버 응답 성공:",
+          JSON.stringify(response, null, 2)
         );
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("❌ 외부 API 오류 응답:", errorText);
-          console.error("❌ 응답 상태:", response.status, response.statusText);
-          console.error("❌ 요청 URL:", fullUrl);
-          console.error("❌ 요청 헤더:", {
-            "Content-Type": "application/json",
-            ...(authHeader && { Authorization: authHeader }),
+        if (response.isSuccess) {
+          return NextResponse.json(response, {
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
           });
+        } else {
           throw new Error(
-            `외부 서버 응답 오류: ${response.status} ${response.statusText} - ${errorText}`
+            response.error || response.message || "사용자 조회에 실패했습니다."
           );
         }
-
-        const data = await response.json();
-        console.log("✅ 외부 서버 응답 성공:", JSON.stringify(data, null, 2));
-        return NextResponse.json(data, {
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          },
-        });
-      } catch (err) {
+      } catch (err: any) {
         console.error("❌ 외부 서버 요청 실패:", err);
 
-        // 구체적인 오류 메시지 제공
+        // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+        const statusCode = err?.response?.status || 500;
         let errorMessage = "서버 요청에 실패했습니다.";
-        if (err instanceof Error) {
-          if (err.name === "AbortError") {
-            errorMessage = "서버 응답 시간이 초과되었습니다.";
-          } else if (err.message.includes("fetch failed")) {
-            errorMessage =
-              "서버에 연결할 수 없습니다. 네트워크를 확인해주세요.";
-          } else {
-            errorMessage = err.message;
-          }
+
+        if (err?.response?.data) {
+          errorMessage =
+            err.response.data.error ||
+            err.response.data.message ||
+            errorMessage;
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
         }
 
         return NextResponse.json(
@@ -152,78 +131,37 @@ export async function GET(
             error: errorMessage,
             details: err instanceof Error ? err.message : String(err),
           },
-          { status: 500 }
+          {
+            status: statusCode,
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
+          }
         );
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("API Error:", error);
 
-    // 서버에서 온 상태 코드가 있으면 그대로 사용
-    if (error && typeof error === "object" && "status" in error) {
-      const status = (error as any).status;
-      const statusText = (error as any).statusText || "Server Error";
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 오류가 발생했습니다.";
 
-      console.log(`🔍 서버 상태 코드 전달: ${status} ${statusText}`);
-
-      return NextResponse.json(
-        { error: (error as any).message || "서버 오류가 발생했습니다." },
-        {
-          status: status,
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          },
-        }
-      );
-    }
-
-    // 에러 타입에 따른 적절한 응답
-    if (error instanceof Error) {
-      if (error.message.includes("401")) {
-        return NextResponse.json(
-          { error: "인증이 필요합니다." },
-          {
-            status: 401,
-            headers: {
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            },
-          }
-        );
-      } else if (error.message.includes("404")) {
-        return NextResponse.json(
-          { error: "사용자를 찾을 수 없습니다." },
-          {
-            status: 404,
-            headers: {
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            },
-          }
-        );
-      } else if (error.message.includes("네트워크")) {
-        return NextResponse.json(
-          { error: "서버에 연결할 수 없습니다. 네트워크를 확인해주세요." },
-          {
-            status: 503,
-            headers: {
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            },
-          }
-        );
-      }
+    if (error?.response?.data) {
+      errorMessage =
+        error.response.data.error ||
+        error.response.data.message ||
+        errorMessage;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
 
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: errorMessage },
       {
-        status: 500,
+        status: statusCode,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -240,7 +178,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
-    const token = request.headers.get("authorization");
+    const authHeader = request.headers.get("authorization");
 
     if (!id) {
       return NextResponse.json(
@@ -249,22 +187,14 @@ export async function DELETE(
       );
     }
 
-    // ✅ 실서버 API URL
-    const externalUrl = `http://54.180.54.51:8080/api/admin/members/${id}`;
+    // 실제 서버 API 호출 - members-api.ts 사용
+    const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+    const response = await deleteMember(parseInt(id), token);
 
-    const res = await fetch(externalUrl, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: token } : {}),
-      },
-    });
+    console.log("✅ 사용자 삭제 응답:", response);
 
-    const data = await res.json();
-    console.log("✅ 사용자 삭제 응답:", data);
-
-    return NextResponse.json(data, {
-      status: res.status,
+    return NextResponse.json(response, {
+      status: response.isSuccess ? 200 : 500,
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods":
@@ -272,11 +202,31 @@ export async function DELETE(
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ 사용자 삭제 오류:", error);
+
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 요청 중 오류가 발생했습니다.";
+
+    if (error?.response?.data) {
+      errorMessage =
+        error.response.data.error ||
+        error.response.data.message ||
+        errorMessage;
+    }
+
     return NextResponse.json(
-      { error: "서버 요청 중 오류가 발생했습니다." },
-      { status: 500 }
+      { error: errorMessage },
+      {
+        status: statusCode,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods":
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      }
     );
   }
 }

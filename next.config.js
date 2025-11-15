@@ -6,8 +6,8 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/:path*", // 프론트에서 /api 로 요청
-        destination: "http://54.180.54.51:8080/api/:path*", // 실제 백엔드로 전달
+        source: "/proxy/:path*",
+        destination: "http://54.180.54.51:8080/:path*",
       },
     ];
   },

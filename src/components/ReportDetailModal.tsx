@@ -3,21 +3,12 @@
 import ReportStatusBadge from "@/components/badge/ReportStatusBadge";
 import { useState, useEffect } from "react";
 import { getImageUrl } from "@/lib/url-utils";
+import {
+  getReportDetail,
+  ReportDetail as ReportDetailType,
+} from "@/lib/reports-api";
 
-interface ReportDetail {
-  reportId: number;
-  type: "LOST" | "FOUND";
-  reason: string;
-  reporterName: string;
-  reportedAt: number[];
-  targetPostId: number;
-  targetTitle: string;
-  targetContent?: string;
-  imagePreview?: string | null;
-  realImages?: string[];
-  status: string;
-  detailReason?: string;
-}
+// ReportDetail 타입은 reports-api.ts에서 import
 
 interface ReportDetailModalProps {
   isOpen: boolean;
@@ -34,7 +25,9 @@ export default function ReportDetailModal({
   reportId,
   reportType,
 }: ReportDetailModalProps) {
-  const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
+  const [reportDetail, setReportDetail] = useState<ReportDetailType | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,43 +56,30 @@ export default function ReportDetailModal({
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        throw new Error("인증 토큰이 없습니다.");
-      }
-
       console.log(
         `🔍 신고 상세 조회: type=${reportType}, reportId=${reportId}`
       );
 
-      const response = await fetch(
-        `/api/admin/reports/${reportType}/${reportId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await getReportDetail(reportType, reportId);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log("📦 신고 상세 조회 응답:", response);
 
-      const data = await response.json();
-      console.log("📦 신고 상세 조회 응답:", data);
-
-      if (data.isSuccess && data.result) {
-        setReportDetail(data.result);
+      if (response.isSuccess && response.result) {
+        setReportDetail(response.result);
       } else {
         throw new Error(
-          data.error || "신고 상세 정보를 불러오는데 실패했습니다."
+          response.error ||
+            response.message ||
+            "신고 상세 정보를 불러오는데 실패했습니다."
         );
       }
     } catch (err: any) {
       console.error("신고 상세 정보 조회 오류:", err);
-      setError("데이터를 불러오지 못했습니다.");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "데이터를 불러오지 못했습니다."
+      );
     } finally {
       setLoading(false);
     }
@@ -159,9 +139,16 @@ export default function ReportDetailModal({
       <div className="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            📋 신고 상세보기
-          </h2>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              📋 신고 상세보기
+            </h2>
+            {reportDetail && (
+              <p className="text-sm text-gray-500 mt-1">
+                신고 ID: {reportDetail.reportId}
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -200,7 +187,7 @@ export default function ReportDetailModal({
                   신고 내역 상세
                 </h3>
                 <div className="space-y-4 text-sm">
-                  {/* 첫 번째 행: 신고자 | 게시물 ID */}
+                  {/* 첫 번째 행: 신고자 | 신고 ID */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
@@ -212,15 +199,28 @@ export default function ReportDetailModal({
                     </div>
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
+                        신고 ID:
+                      </span>
+                      <span className="text-gray-900 font-medium">
+                        {reportDetail.reportId}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 두 번째 행: 게시물 ID */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex">
+                      <span className="w-24 font-medium text-gray-600">
                         게시물 ID:
                       </span>
                       <span className="text-gray-900">
                         {reportDetail.targetPostId}
                       </span>
                     </div>
+                    <div className="flex">{/* 빈 공간 - 레이아웃 유지 */}</div>
                   </div>
 
-                  {/* 두 번째 행: 신고일 | 처리 상태 */}
+                  {/* 세 번째 행: 신고일 | 처리 상태 */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
@@ -238,7 +238,7 @@ export default function ReportDetailModal({
                     </div>
                   </div>
 
-                  {/* 세 번째 행: 신고 사유 */}
+                  {/* 네 번째 행: 신고 사유 */}
                   <div>
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
@@ -250,7 +250,7 @@ export default function ReportDetailModal({
                     </div>
                   </div>
 
-                  {/* 네 번째 행: 상세 사유 (박스 처리) */}
+                  {/* 다섯 번째 행: 상세 사유 (박스 처리) */}
                   <div>
                     <div className="flex items-start">
                       <span className="w-24 font-medium text-gray-600 pt-1">

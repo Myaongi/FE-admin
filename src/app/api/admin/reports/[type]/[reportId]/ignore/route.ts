@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiClient } from "@/lib/api-client";
+import { ignoreReport } from "@/lib/reports-api";
 
 // CORS preflight 요청 처리
 export async function OPTIONS() {
@@ -39,12 +40,10 @@ export async function PATCH(
       );
     }
 
-    // 실제 서버 API 호출
-    const apiClient = getApiClient();
-    const token = authHeader.replace("Bearer ", "");
-
-    const response = await apiClient.ignoreReport(
-      type,
+    // 실제 서버 API 호출 - reports-api.ts 사용
+    const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+    const response = await ignoreReport(
+      type as "LOST" | "FOUND",
       parseInt(reportId),
       token
     );
@@ -90,14 +89,24 @@ export async function PATCH(
   } catch (error: any) {
     console.error("❌ 신고 무시 처리 실패:", error);
 
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 오류가 발생했습니다.";
+
+    if (error?.response?.data) {
+      errorMessage = error.response.data.error || error.response.data.message || errorMessage;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+
     return NextResponse.json(
       {
         isSuccess: false,
-        error: error.message || "서버 오류가 발생했습니다.",
+        error: errorMessage,
         message: "신고 무시 처리 실패",
       },
       {
-        status: 500,
+        status: statusCode,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods":

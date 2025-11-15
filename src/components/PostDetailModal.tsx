@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { apiClient } from "@/lib/api-client";
 import PostTab from "./PostDetailModalTab/PostTab";
 import DogTab from "./PostDetailModalTab/DogTab";
 import LocationInfoTab from "./PostDetailModalTab/LocationInfoTab";
-
-import { PostDetail } from "@/lib/api-client";
+import { getPostDetail, deletePost, PostDetail } from "@/lib/posts-api";
 
 interface PostDetailModalProps {
   isOpen: boolean;
@@ -31,42 +29,24 @@ export default function PostDetailModal({
     "post"
   );
 
-  // 게시글 상세 정보 가져오기 - 내부 API 경유
+  // 게시글 상세 정보 가져오기
   const fetchPostDetail = async (id: number, type: "LOST" | "FOUND") => {
     setLoading(true);
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
-
-      if (!accessToken) {
-        throw new Error("인증 토큰이 없습니다. 다시 로그인해주세요.");
-      }
-
       if (!type) {
         throw new Error("게시글 타입이 필요합니다.");
       }
 
-      const url = `/api/admin/posts/${type}/${id}`;
-      console.log("API 호출 시작:", url);
+      console.log("📋 게시글 상세 조회:", id, type);
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await getPostDetail(type, id);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log("📦 게시글 상세 응답:", response);
 
-      const data = await response.json();
-      console.log("API 응답 받음:", data);
-
-      if (data.isSuccess && data.result) {
-        const postData = (data.result as any).content || data.result;
+      if (response.isSuccess && response.result) {
+        const postData = response.result;
         console.log("📋 추출된 게시글 데이터:", postData);
 
         if (!postData.type) {
@@ -89,28 +69,16 @@ export default function PostDetailModal({
 
         setPostDetail(postData);
       } else {
-        throw new Error(data.error || "API 응답 오류");
+        throw new Error(response.error || response.message || "API 응답 오류");
       }
     } catch (err: any) {
       console.error("게시글 상세 정보 조회 오류:", err);
 
       let errorMessage = "게시글 상세 정보를 불러오는데 실패했습니다.";
-      if (typeof err.message === "string") {
-        if (err.message.includes("Failed to fetch")) {
-          errorMessage =
-            "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.";
-        } else if (err.message.includes("요청 시간이 초과")) {
-          errorMessage =
-            "요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.";
-        } else if (err.message.includes("401")) {
-          errorMessage = "인증이 필요합니다. 다시 로그인해주세요.";
-        } else if (err.message.includes("404")) {
-          errorMessage = "해당 게시글을 찾을 수 없습니다.";
-        } else if (err.message.includes("500")) {
-          errorMessage = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-        } else {
-          errorMessage = err.message;
-        }
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
       setError(errorMessage);
@@ -153,11 +121,7 @@ export default function PostDetailModal({
         return;
       }
 
-      const response = await apiClient.deletePost(
-        postId,
-        postType,
-        accessToken
-      );
+      const response = await deletePost(postType, postId);
 
       if (response.isSuccess) {
         alert("게시글이 삭제되었습니다.");
@@ -167,7 +131,9 @@ export default function PostDetailModal({
           onDelete(postId, postType);
         }
       } else {
-        throw new Error(response.error || "삭제에 실패했습니다.");
+        throw new Error(
+          response.error || response.message || "삭제에 실패했습니다."
+        );
       }
     } catch (error: any) {
       console.error("게시글 삭제 오류:", error);

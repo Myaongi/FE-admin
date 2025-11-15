@@ -2,34 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import PostDetailModal from "@/components/PostDetailModal";
 import FilterButtons from "@/components/FilterButtons";
 import AiToggle from "@/components/AiToggle";
 import PostsTable from "@/components/PostsTable";
-
-interface Post {
-  postId: number;
-  type: "LOST" | "FOUND";
-  status: string;
-  thumbnailUrl: string;
-  title: string;
-  authorName: string;
-  createdAt: number[];
-  region: string;
-  aiImage?: string | null;
-  realImages?: string[];
-  isDeleted?: boolean;
-  deletedAt?: string;
-}
-
-interface PostsResponse {
-  content: Post[];
-  totalElements: number;
-  totalPages: number;
-  page: number;
-  size: number;
-}
+import { getPosts, deletePost, Post } from "@/lib/posts-api";
 
 export default function PostsPage() {
   const router = useRouter();
@@ -60,18 +37,8 @@ export default function PostsPage() {
   };
 
   const handleModalDelete = (postId: number, postType: "LOST" | "FOUND") => {
-    // 모달에서 삭제된 경우 테이블 상태 업데이트
-    setPosts((prevPosts) =>
-      prevPosts.map((p) =>
-        p.postId === postId
-          ? {
-              ...p,
-              isDeleted: true,
-              deletedAt: new Date().toISOString(),
-            }
-          : p
-      )
-    );
+    // 모달에서 삭제된 경우 목록 새로고침
+    fetchPosts();
   };
 
   const handleDeleteClick = async (postId: number) => {
@@ -86,47 +53,27 @@ export default function PostsPage() {
         return;
       }
 
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        alert("인증 토큰이 없습니다.");
-        return;
-      }
+      console.log(`🗑️ 게시글 삭제: type=${post.type}, postId=${postId}`);
 
-      // API 삭제 호출 (apiClient 사용)
-      const response = await fetch(`/api/admin/posts/${postId}/delete`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await deletePost(post.type, postId);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log("📦 게시글 삭제 응답:", response);
 
-      const data = await response.json();
-
-      if (data.isSuccess) {
-        // 프론트엔드 상태 즉시 업데이트
-        setPosts((prevPosts) =>
-          prevPosts.map((p) =>
-            p.postId === postId
-              ? {
-                  ...p,
-                  isDeleted: true,
-                  deletedAt: data.result?.deletedAt || new Date().toISOString(),
-                }
-              : p
-          )
-        );
+      if (response.isSuccess) {
         alert("게시글이 삭제되었습니다.");
+        
+        // 서버에서 최신 데이터 다시 가져오기
+        await fetchPosts();
       } else {
-        throw new Error(data.message || data.error || "삭제에 실패했습니다.");
+        throw new Error(response.message || "삭제에 실패했습니다.");
       }
     } catch (error: any) {
       console.error("게시글 삭제 오류:", error);
-      alert(error.message || "게시글 삭제에 실패했습니다.");
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "게시글 삭제에 실패했습니다."
+      );
     }
   };
 
@@ -136,51 +83,33 @@ export default function PostsPage() {
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem("accessToken");
+      console.log(`📊 게시물 조회: 필터=${filter}, AI만=${aiOnly}`);
 
-      if (!accessToken) {
-        throw new Error("인증 토큰이 없습니다.");
-      }
-
-      console.log(
-        "🔑 토큰으로 API 호출:",
-        accessToken.substring(0, 20) + "..."
-      );
-      console.log(`📊 필터: ${filter}, AI만: ${aiOnly}`);
-
-      const response = await axios.get("/api/admin/posts", {
-        params: {
-          type: filter,
-          aiOnly: aiOnly,
-          page: 0,
-          size: 20,
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      const response = await getPosts({
+        type: filter,
+        aiOnly: aiOnly,
+        page: 0,
+        size: 20,
       });
 
-      console.log("📦 API 응답:", response.data);
+      console.log("📦 게시물 API 응답:", response);
 
-      if (response.data.isSuccess) {
-        console.log("✅ data 구조 확인:", response.data.result);
-        const result = response.data.result;
-        const data = result?.content || [];
+      if (response.isSuccess && response.result) {
+        const data = response.result.content || [];
 
-        // 기존 중복 제거 대신 타입 + ID로 유니크 처리
+        // 타입 + ID로 유니크 처리
         const uniquePosts = data.map((post: any) => ({
           ...post,
           uniqueKey: `${post.type}-${post.postId}`,
         }));
 
         setPosts(uniquePosts);
+        console.log("✅ 게시물 로드 성공:", uniquePosts.length, "건");
       } else {
-        throw new Error(
-          response.data.message || response.data.error || "API 응답 오류"
-        );
+        throw new Error("게시물을 불러올 수 없습니다.");
       }
     } catch (err: any) {
-      console.error("API 호출 오류:", err);
+      console.error("게시물 조회 오류:", err);
 
       // 에러 메시지 설정
       if (err.response?.status === 404) {
@@ -190,10 +119,13 @@ export default function PostsPage() {
       } else if (err.response?.status === 500) {
         setError("서버 오류가 발생했습니다.");
       } else {
-        setError("게시글을 불러오는데 실패했습니다.");
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "게시글을 불러오는데 실패했습니다."
+        );
       }
 
-      // 에러 발생 시 빈 배열로 설정
       setPosts([]);
     } finally {
       setLoading(false);

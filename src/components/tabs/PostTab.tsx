@@ -1,27 +1,7 @@
 "use client";
 
-interface PostDetail {
-  postId: number;
-  type: "LOST";
-  status: string;
-  thumbnailUrl: string;
-  title: string;
-  authorName: string;
-  createdAt: number[];
-  region: string;
-  aiImage: string | null;
-  realImages: string[];
-  dogName: string;
-  breed: string;
-  color: string;
-  gender: "MALE" | "FEMALE";
-  description: string;
-  eventDateTime: number[];
-  latitude: number;
-  longitude: number;
-}
-
 import type { ReactNode } from "react";
+import { PostDetail } from "@/lib/posts-api";
 
 interface PostTabProps {
   postDetail: PostDetail;

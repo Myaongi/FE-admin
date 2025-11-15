@@ -1,26 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
-interface PostDetail {
-  postId: number;
-  type: "LOST" | "FOUND";
-  status: string;
-  thumbnailUrl: string;
-  title: string;
-  authorName: string;
-  createdAt: number[];
-  region: string;
-  aiImage: string | null;
-  realImages: string[];
-  dogName?: string | null; // LOST만 값 존재
-  breed: string;
-  color: string;
-  gender: "MALE" | "FEMALE";
-  description: string;
-  eventDateTime: number[];
-  latitude: number;
-  longitude: number;
-}
+import { PostDetail } from "@/lib/posts-api";
 
 interface LocationInfoTabProps {
   postDetail: PostDetail;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockMembersList } from "@/lib/mock/members";
+import { getMembers } from "@/lib/members-api";
 
 export async function GET(request: NextRequest) {
   console.log("🔥 Members API 호출됨!");
@@ -81,68 +82,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response);
     } else {
       try {
-        // 직접 외부 API 호출
-        const externalApiUrl = "http://54.180.54.51:8080";
-        const queryString = new URLSearchParams({
-          page: page.toString(),
-          size: size.toString(),
-          ...(query && { query }),
-        }).toString();
-
-        const fullUrl = `${externalApiUrl}/api/admin/members?${queryString}`;
-        console.log("🌐 외부 API 직접 호출:", fullUrl);
-        console.log(
-          "🔑 전달할 토큰:",
-          authHeader ? authHeader.substring(0, 30) + "..." : "없음"
-        );
-
-        const response = await fetch(fullUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(authHeader && { Authorization: authHeader }),
+        // 실제 서버 API 호출 - members-api.ts 사용
+        const token = authHeader ? authHeader.replace("Bearer ", "") : null;
+        const response = await getMembers(
+          {
+            query: query.trim() || undefined,
+            page,
+            size,
           },
-          // 타임아웃 설정
-          signal: AbortSignal.timeout(10000), // 10초 타임아웃
-        });
-
-        console.log(
-          "📡 외부 API 응답 상태:",
-          response.status,
-          response.statusText
+          token
         );
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("❌ 외부 API 오류 응답:", errorText);
-          console.error("❌ 응답 상태:", response.status, response.statusText);
-          console.error("❌ 요청 URL:", fullUrl);
-          console.error("❌ 요청 헤더:", {
-            "Content-Type": "application/json",
-            ...(authHeader && { Authorization: authHeader }),
-          });
-          throw new Error(
-            `외부 서버 응답 오류: ${response.status} ${response.statusText} - ${errorText}`
-          );
-        }
-
-        const data = await response.json();
-        console.log("✅ 외부 서버 응답 성공:", data);
-        return NextResponse.json(data);
-      } catch (err) {
+        console.log("✅ 외부 서버 응답 성공:", response);
+        return NextResponse.json(response);
+      } catch (err: any) {
         console.error("❌ 외부 서버 요청 실패:", err);
 
-        // 구체적인 오류 메시지 제공
+        // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+        const statusCode = err?.response?.status || 500;
         let errorMessage = "서버 요청에 실패했습니다.";
-        if (err instanceof Error) {
-          if (err.name === "AbortError") {
-            errorMessage = "서버 응답 시간이 초과되었습니다.";
-          } else if (err.message.includes("fetch failed")) {
-            errorMessage =
-              "서버에 연결할 수 없습니다. 네트워크를 확인해주세요.";
-          } else {
-            errorMessage = err.message;
-          }
+
+        if (err?.response?.data) {
+          errorMessage =
+            err.response.data.error ||
+            err.response.data.message ||
+            errorMessage;
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
         }
 
         return NextResponse.json(
@@ -150,36 +116,26 @@ export async function GET(request: NextRequest) {
             error: errorMessage,
             details: err instanceof Error ? err.message : String(err),
           },
-          { status: 500 }
+          { status: statusCode }
         );
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("API Error:", error);
 
-    // 에러 타입에 따른 적절한 응답
-    if (error instanceof Error) {
-      if (error.message.includes("401")) {
-        return NextResponse.json(
-          { error: "인증이 필요합니다." },
-          { status: 401 }
-        );
-      } else if (error.message.includes("404")) {
-        return NextResponse.json(
-          { error: "API 엔드포인트를 찾을 수 없습니다." },
-          { status: 404 }
-        );
-      } else if (error.message.includes("네트워크")) {
-        return NextResponse.json(
-          { error: "서버에 연결할 수 없습니다. 네트워크를 확인해주세요." },
-          { status: 503 }
-        );
-      }
+    // axios 에러의 경우 외부 서버의 상태 코드를 그대로 전달
+    const statusCode = error?.response?.status || 500;
+    let errorMessage = "서버 오류가 발생했습니다.";
+
+    if (error?.response?.data) {
+      errorMessage =
+        error.response.data.error ||
+        error.response.data.message ||
+        errorMessage;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
 
-    return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 }
