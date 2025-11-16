@@ -33,6 +33,15 @@ export default function ReportsPage() {
   const [selectedPostType, setSelectedPostType] = useState<
     "LOST" | "FOUND" | null
   >(null);
+  const [processingReportIds, setProcessingReportIds] = useState<
+    Record<number, "delete" | "ignore">
+  >({});
+  const [processedReportIds, setProcessedReportIds] = useState<
+    Record<number, "delete" | "ignore">
+  >({});
+  const [processedAtMap, setProcessedAtMap] = useState<Record<number, string>>(
+    {}
+  );
 
   // 신고 내역 목록 조회
   const fetchReports = async (page: number = 0) => {
@@ -51,7 +60,52 @@ export default function ReportsPage() {
 
       if (response.isSuccess && response.result) {
         const reportsData = response.result.content || [];
-        setReports(reportsData);
+
+        // 새로고침 시에도 처리 상태가 유지되도록 sessionStorage의 마커를 반영
+        const processedMapFromStorage: Record<number, "delete" | "ignore"> = {};
+        const processedAtFromStorage: Record<number, string> = {};
+        const withClientProcessed = reportsData.map((r) => {
+          if (typeof window === "undefined") return r;
+          const raw = sessionStorage.getItem(`reportProcessed:${r.reportId}`);
+          if (!raw) return r;
+          try {
+            const { action, date } = JSON.parse(raw) as {
+              action: "delete" | "ignore";
+              date?: string;
+            };
+            const status = "처리완료";
+            processedMapFromStorage[r.reportId] = action;
+            if (date) {
+              processedAtFromStorage[r.reportId] = date;
+            }
+            return { ...r, status };
+          } catch {
+            return r;
+          }
+        });
+
+        setReports(withClientProcessed);
+        if (Object.keys(processedMapFromStorage).length > 0) {
+          setProcessedReportIds((prev) => ({
+            ...prev,
+            ...processedMapFromStorage,
+          }));
+        }
+        if (Object.keys(processedAtFromStorage).length > 0) {
+          setProcessedAtMap((prev) => ({ ...prev, ...processedAtFromStorage }));
+        }
+
+        // 서버가 이미 처리된 항목은 세션 마커 제거
+        if (typeof window !== "undefined") {
+          reportsData.forEach((r) => {
+            // 서버 상태가 삭제됨/무시됨이면 세션 마커 제거
+            // (단순 "처리완료"는 액션 구분이 없어 마커 유지)
+            if (r.status.includes("삭제됨") || r.status.includes("무시됨")) {
+              sessionStorage.removeItem(`reportProcessed:${r.reportId}`);
+            }
+          });
+        }
+
         setTotalElements(response.result.totalElements || reportsData.length);
         setTotalPages(
           response.result.totalPages || Math.ceil(reportsData.length / pageSize)
@@ -132,6 +186,7 @@ export default function ReportsPage() {
 
     try {
       console.log(`🩶 신고 무시 처리: type=${type}, reportId=${reportId}`);
+      setProcessingReportIds((prev) => ({ ...prev, [reportId]: "ignore" }));
 
       const response = await ignoreReport(type, reportId);
 
@@ -139,6 +194,29 @@ export default function ReportsPage() {
 
       if (response.isSuccess) {
         alert("✅ 신고 무효처리가 완료되었습니다.");
+        setProcessedReportIds((prev) => ({ ...prev, [reportId]: "ignore" }));
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        const label = `${yy}.${mm}.${dd}`;
+        setProcessedAtMap((prev) => ({
+          ...prev,
+          [reportId]: label,
+        }));
+        // 낙관적 UI 업데이트
+        setReports((prev) =>
+          prev.map((r) =>
+            r.reportId === reportId ? { ...r, status: "처리완료" } : r
+          )
+        );
+        // 새로고침 대비 세션 저장
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(
+            `reportProcessed:${reportId}`,
+            JSON.stringify({ action: "ignore", date: label })
+          );
+        }
 
         // 서버에서 최신 데이터 다시 가져오기
         await fetchReports(currentPage);
@@ -152,6 +230,11 @@ export default function ReportsPage() {
           err.message ||
           "서버 오류가 발생했습니다."
       );
+    } finally {
+      setProcessingReportIds((prev) => {
+        const { [reportId]: _removed, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -161,6 +244,7 @@ export default function ReportsPage() {
 
     try {
       console.log(`🧹 신고 게시글 삭제: type=${type}, reportId=${reportId}`);
+      setProcessingReportIds((prev) => ({ ...prev, [reportId]: "delete" }));
 
       const response = await deleteReportedPost(type, reportId);
 
@@ -168,6 +252,29 @@ export default function ReportsPage() {
 
       if (response.isSuccess) {
         alert("🗑️ 신고된 게시글이 성공적으로 삭제되었습니다.");
+        setProcessedReportIds((prev) => ({ ...prev, [reportId]: "delete" }));
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        const label = `${yy}.${mm}.${dd}`;
+        setProcessedAtMap((prev) => ({
+          ...prev,
+          [reportId]: label,
+        }));
+        // 낙관적 UI 업데이트
+        setReports((prev) =>
+          prev.map((r) =>
+            r.reportId === reportId ? { ...r, status: "처리완료" } : r
+          )
+        );
+        // 새로고침 대비 세션 저장
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(
+            `reportProcessed:${reportId}`,
+            JSON.stringify({ action: "delete", date: label })
+          );
+        }
 
         // 서버에서 최신 데이터 다시 가져오기
         await fetchReports(currentPage);
@@ -181,6 +288,11 @@ export default function ReportsPage() {
           err.message ||
           "서버 오류가 발생했습니다."
       );
+    } finally {
+      setProcessingReportIds((prev) => {
+        const { [reportId]: _removed, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -198,28 +310,61 @@ export default function ReportsPage() {
     return <ReportStatusBadge status={status} />;
   };
 
-  // 관리자 작업 버튼 렌더링
+  // 관리자 작업 버튼/상태 렌더링
   const renderAdminActions = (report: Report) => {
-    // 이미 처리된 신고는 상태만 표시
-    if (report.status.includes("무시됨") || report.status.includes("삭제됨")) {
+    const isProcessing = Boolean(processingReportIds[report.reportId]);
+    const processedByClient = processedReportIds[report.reportId];
+    const processedByServer = report.status.includes("처리완료");
+    const isProcessed = Boolean(processedByClient) || processedByServer;
+
+    // 처리 완료 또는 서버에서 이미 처리된 경우: 비활성 박스 표시
+    if (isProcessed) {
+      const action: "delete" | "ignore" | "unknown" =
+        processedByClient ?? "unknown";
+      const baseLabel =
+        action === "delete"
+          ? "삭제 완료"
+          : action === "ignore"
+          ? "무시 완료"
+          : "처리 완료";
+      const datePrefix = processedAtMap[report.reportId]
+        ? `${processedAtMap[report.reportId]} `
+        : "";
       return (
-        <div className="text-sm text-gray-500 font-medium">{report.status}</div>
+        <div className="px-2 py-1.5 bg-gray-50 border border-gray-200 text-gray-500 rounded-md text-sm font-medium cursor-not-allowed select-none">
+          {`${datePrefix}${baseLabel}`.trim()}
+        </div>
       );
     }
 
+    // 진행 중: 버튼 비활성 및 진행 문구
     return (
       <div className="flex gap-2">
         <button
           onClick={() => handleDelete(report.type, report.reportId)}
-          className="px-3 py-1.5 bg-red-100 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-200 transition-colors"
+          disabled={isProcessing}
+          className={`px-3 py-1.5 border rounded-md text-sm font-medium transition-colors ${
+            isProcessing
+              ? "bg-red-50 border-red-200 text-red-300 cursor-not-allowed"
+              : "bg-red-100 border-red-300 text-red-700 hover:bg-red-200"
+          }`}
         >
-          삭제
+          {processingReportIds[report.reportId] === "delete"
+            ? "삭제 중..."
+            : "삭제"}
         </button>
         <button
           onClick={() => handleIgnore(report.type, report.reportId)}
-          className="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+          disabled={isProcessing}
+          className={`px-3 py-1.5 border rounded-md text-sm font-medium transition-colors ${
+            isProcessing
+              ? "bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed"
+              : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+          }`}
         >
-          무시
+          {processingReportIds[report.reportId] === "ignore"
+            ? "무시 중..."
+            : "무시"}
         </button>
       </div>
     );

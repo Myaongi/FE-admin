@@ -139,14 +139,14 @@ export default function ReportDetailModal({
       <div className="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
+          <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-gray-900">
               📋 신고 상세보기
             </h2>
             {reportDetail && (
-              <p className="text-sm text-gray-500 mt-1">
+              <span className="text-sm text-gray-500">
                 신고 ID: {reportDetail.reportId}
-              </p>
+              </span>
             )}
           </div>
           <button
@@ -187,7 +187,6 @@ export default function ReportDetailModal({
                   신고 내역 상세
                 </h3>
                 <div className="space-y-4 text-sm">
-                  {/* 첫 번째 행: 신고자 | 신고 ID */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
@@ -199,28 +198,14 @@ export default function ReportDetailModal({
                     </div>
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
-                        신고 ID:
-                      </span>
-                      <span className="text-gray-900 font-medium">
-                        {reportDetail.reportId}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 두 번째 행: 게시물 ID */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex">
-                      <span className="w-24 font-medium text-gray-600">
                         게시물 ID:
                       </span>
                       <span className="text-gray-900">
                         {reportDetail.targetPostId}
                       </span>
                     </div>
-                    <div className="flex">{/* 빈 공간 - 레이아웃 유지 */}</div>
                   </div>
 
-                  {/* 세 번째 행: 신고일 | 처리 상태 */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
@@ -238,7 +223,6 @@ export default function ReportDetailModal({
                     </div>
                   </div>
 
-                  {/* 네 번째 행: 신고 사유 */}
                   <div>
                     <div className="flex">
                       <span className="w-24 font-medium text-gray-600">
@@ -250,7 +234,6 @@ export default function ReportDetailModal({
                     </div>
                   </div>
 
-                  {/* 다섯 번째 행: 상세 사유 (박스 처리) */}
                   <div>
                     <div className="flex items-start">
                       <span className="w-24 font-medium text-gray-600 pt-1">
